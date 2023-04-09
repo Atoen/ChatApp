@@ -18,7 +18,7 @@ public class Client
     {
         if (_client.Connected) return;
         
-        await _client.ConnectAsync("127.0.0.1", 13000);
+        await _client.ConnectAsync("192.168.100.8", 13000);
         _stream = _client.GetStream();
         
         _packetReader = new PacketReader(_stream);
@@ -69,8 +69,8 @@ public class Client
                     break;
                 
                 case OpCode.BroadcastConnected:
-                    var username = await _packetReader.ReadMessageAsync();
-                    var uid = await _packetReader.ReadMessageAsync();
+                    var username = await _packetReader.ReadContentAsync();
+                    var uid = await _packetReader.ReadContentAsync();
                     
                     var user = new { username, uid };
                     Console.Title = $"{user} connected!";

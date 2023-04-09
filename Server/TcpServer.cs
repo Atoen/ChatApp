@@ -47,15 +47,19 @@ public class TcpServer
         {
             case OpCode.Connect:
                 break;
+            
             case OpCode.Disconnect:
-                _log.Information("User {Username} has disconnected", user.Username);
+                UserDisconnected(user);
                 break;
+            
             case OpCode.SendMessage:
                 var message = await user.ReadTransmission();
                 _log.Information("<{Username}> \"{Message}\"", user.Username, message);
                 break;
+            
             case OpCode.BroadcastConnected:
                 break;
+            
             default:
                 throw new ArgumentOutOfRangeException(nameof(opCode), opCode, null);
         }
@@ -68,7 +72,7 @@ public class TcpServer
         var opCode = await packetReader.ReadOpCodeAsync();
         if (opCode != OpCode.Connect) throw new NetworkInformationException();
         
-        var username = await packetReader.ReadMessageAsync();
+        var username = await packetReader.ReadContentAsync();
         var uid = Guid.NewGuid().ToString();
         
         _log.Information("User {Username} has connected", username);
@@ -76,6 +80,15 @@ public class TcpServer
         var user = new User(client, username, uid);
         
         return user;
+    }
+
+    private void UserDisconnected(User user)
+    {
+        _log.Information("User {Username} has disconnected", user.Username);
+
+        _connectedUsers.Remove(user);
+        
+        user.Dispose();
     }
 
     private async Task BroadcastConnection()

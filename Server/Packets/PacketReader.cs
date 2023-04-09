@@ -30,31 +30,35 @@ public class PacketReader : BinaryReader
         var buffer = ArrayPool<byte>.Shared.Rent(length);
 
         var read = _stream.Read(buffer, 0, length);
-        var message = Encoding.UTF8.GetString(buffer);
+        var message = Encoding.UTF8.GetString(buffer, 0, read);
 
-        return message[..read];
+        ArrayPool<byte>.Shared.Return(buffer);
+
+        return message;
     }
 
     public async Task<OpCode> ReadOpCodeAsync()
     {
-        var buffer = new byte[1];
-        var read = await _stream.ReadAsync(buffer.AsMemory());
-        
+        var buffer = ArrayPool<byte>.Shared.Rent(1);
+
+        var read = await _stream.ReadAsync(buffer.AsMemory(0, 1));
         if (read != 1) throw new NetworkInformationException();
-        
+
+        ArrayPool<byte>.Shared.Return(buffer);
+
         return (OpCode) buffer[0];
     }
-
-    public async Task<string> ReadMessageAsync()
+    
+    public async Task<string> ReadContentAsync()
     {
         var length = ReadInt32();
         var buffer = ArrayPool<byte>.Shared.Rent(length);
 
         var read = await _stream.ReadAsync(buffer.AsMemory(0, length));
+        var message = Encoding.UTF8.GetString(buffer, 0, read);
+        
+        ArrayPool<byte>.Shared.Return(buffer);
 
-        var message = Encoding.UTF8.GetString(buffer);
-
-        return message[..read];
-
+        return message;
     }
 }

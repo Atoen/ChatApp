@@ -3,7 +3,7 @@ using Server;
 
 Console.WriteLine("Server startup...");
 
-var address = IPAddress.Parse("127.0.0.1");
+var address = IPAddress.Parse("192.168.100.8");
 var endpoint = new IPEndPoint(address, 13000);
 
 var server = new TcpServer(endpoint);

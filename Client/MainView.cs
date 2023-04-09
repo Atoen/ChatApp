@@ -20,12 +20,7 @@ public class MainView
 
     public MainView()
     {
-        Input.ControlC += delegate
-        {
-            _client.Close();
-            
-            Application.Exit();
-        };
+        Application.ApplicationExit += delegate { _client.Close(); };
         
         var mainGrid = new Grid
         {
@@ -112,6 +107,9 @@ public class MainView
     private async void Send()
     {
         var message = _inputBox.Text.String;
+        
+        if (message == string.Empty) return;
+        
         await _client.SendMessageAsync(message);
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.Net.Sockets;
+﻿using System.Diagnostics;
+using System.Net.Sockets;
 using Server.Packets;
 
 namespace Server;
@@ -10,75 +11,106 @@ public class Client
         _client = new TcpClient();
     }
 
-    private readonly TcpClient _client;
+    private TcpClient _client;
     private PacketReader _packetReader = default!;
+    private PacketWriter _packetWriter = default!;
     private NetworkStream _stream = default!;
+
+    private bool _shouldOpenNewConnection;
 
     public async Task ConnectToServerAsync(string username)
     {
+        if (_shouldOpenNewConnection)
+        {
+            _client = new TcpClient();
+            _shouldOpenNewConnection = false;
+        }
+
         if (_client.Connected) return;
-        
-        await _client.ConnectAsync("192.168.100.8", 13000);
-        _stream = _client.GetStream();
-        
+
+        Console.Title = "Connecting...";
+
+        try
+        {
+            await _client.ConnectAsync("192.168.100.8", 13000);
+            _stream = _client.GetStream();
+        }
+        catch (SocketException e)
+        {
+            Console.Title = e.Message;
+            return;
+        }
+
         _packetReader = new PacketReader(_stream);
+        _packetWriter = new PacketWriter(_stream);
 
-        await using var connectedPacket = new Packet();
-        connectedPacket.WriteOpCode(OpCode.Connect);
-        await connectedPacket.WriteMessageAsync(username);
+        await _packetWriter.SendNewUserNameAsync(username);
 
-        await _stream.WriteAsync(connectedPacket.Bytes);
-        
         await ProcessIncomingPackets();
     }
 
     public async Task SendMessageAsync(string message)
     {
-        await using var packet = new Packet();
-        packet.WriteOpCode(OpCode.SendMessage);
-        await packet.WriteMessageAsync(message);
-
-        await _stream.WriteAsync(packet.Bytes);
+        await _packetWriter.SendMessageAsync(message);
     }
 
     public void Close()
     {
-        using var packet = new Packet();
-        packet.WriteOpCode(OpCode.Disconnect);
-        
-        _stream.Write(packet.Bytes);
+        if (_client.Connected)
+        {
+            _packetWriter.WriteOpCode(OpCode.Disconnect);
+        }
 
         _client.Close();
+        _shouldOpenNewConnection = true;
     }
 
     private async Task ProcessIncomingPackets()
     {
-        while (true)
+        while (_client.Connected)
         {
-            var opCode = await _packetReader.ReadOpCodeAsync();
+            OpCode opCode;
+            try
+            {
+                opCode = await _packetReader.ReadOpCodeAsync();
+            }
+            catch (IOException e) // Client was closed while awaiting the read
+            {
+                Debug.WriteLine(e);
+                return;
+            }
 
             switch (opCode)
             {
                 case OpCode.Connect:
                     break;
-                
+
                 case OpCode.Disconnect:
                     break;
-                
+
                 case OpCode.SendMessage:
                     break;
-                
+
                 case OpCode.BroadcastConnected:
-                    var username = await _packetReader.ReadContentAsync();
-                    var uid = await _packetReader.ReadContentAsync();
-                    
-                    var user = new { username, uid };
+                    var user = await _packetReader.ReceiveBroadcastConnectedAsync();
                     Console.Title = $"{user} connected!";
-                    
                     break;
-                
+
+                case OpCode.BroadcastDisconnected:
+                    var u = await _packetReader.ReceiveConnectionConfirmationAsync();
+                    Console.Title = $"{u} disconnected!";
+                    break;
+
+                case OpCode.ReceiveMessage:
+                    break;
+
+                case OpCode.ConfirmConnection:
+                    var me = await _packetReader.ReceiveConnectionConfirmationAsync();
+                    Console.Title = $"Connected as {me}";
+                    break;
+
                 default:
-                    throw new ArgumentOutOfRangeException();
+                    throw new ArgumentOutOfRangeException(nameof(opCode), opCode, null);
             }
         }
     }

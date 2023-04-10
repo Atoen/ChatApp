@@ -1,5 +1,4 @@
 ﻿using System.Net;
-using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using Serilog;
 using Serilog.Core;
@@ -23,21 +22,21 @@ public class TcpServer
     public async Task Start()
     {
         _listener.Start();
-        
+
         _log.Information("Server listening on {Address}", _listener.Server.LocalEndPoint?.ToString());
 
         while (true)
         {
             var client = await _listener.AcceptTcpClientAsync();
             _log.Debug("Accepted connection from {Remote}", client.Client.RemoteEndPoint?.ToString());
-            
+
             var user = await ConnectUser(client);
             user.TransmissionReceived += ConnectionOnTransmissionReceived;
             user.StartListening();
-            
-            _connectedUsers.Add(user);
 
-            await BroadcastConnection();
+            await BroadcastConnectedUser(user);
+
+            _connectedUsers.Add(user);
         }
     }
 
@@ -47,19 +46,21 @@ public class TcpServer
         {
             case OpCode.Connect:
                 break;
-            
+
             case OpCode.Disconnect:
-                UserDisconnected(user);
+                await UserDisconnected(user);
                 break;
-            
+
             case OpCode.SendMessage:
-                var message = await user.ReadTransmission();
+                var message = await user.Reader.ReadMessageAsync();
                 _log.Information("<{Username}> \"{Message}\"", user.Username, message);
                 break;
-            
+
             case OpCode.BroadcastConnected:
+            case OpCode.ReceiveMessage:
+            case OpCode.BroadcastDisconnected:
                 break;
-            
+
             default:
                 throw new ArgumentOutOfRangeException(nameof(opCode), opCode, null);
         }
@@ -67,41 +68,43 @@ public class TcpServer
 
     private async Task<User> ConnectUser(TcpClient client)
     {
-        var packetReader = new PacketReader(client.GetStream());
+        using var packetReader = new PacketReader(client.GetStream());
 
-        var opCode = await packetReader.ReadOpCodeAsync();
-        if (opCode != OpCode.Connect) throw new NetworkInformationException();
-        
-        var username = await packetReader.ReadContentAsync();
+        var username = await packetReader.GetNewUserNameAsync();
         var uid = Guid.NewGuid().ToString();
-        
+
         _log.Information("User {Username} has connected", username);
-        
+
         var user = new User(client, username, uid);
-        
+
+        await user.Writer.ConfirmConnectionAsync(user);
+
         return user;
     }
 
-    private void UserDisconnected(User user)
+    private async Task UserDisconnected(User user)
     {
         _log.Information("User {Username} has disconnected", user.Username);
 
         _connectedUsers.Remove(user);
-        
+        await BroadcastDisconnectedUser(user);
+
         user.Dispose();
     }
 
-    private async Task BroadcastConnection()
+    private async Task BroadcastConnectedUser(User connected)
     {
         foreach (var user in _connectedUsers)
         {
-            await using var packet = new Packet();
-            
-            packet.WriteOpCode(OpCode.BroadcastConnected);
-            await packet.WriteMessageAsync(user.Username);
-            await packet.WriteMessageAsync(user.Uid);
+            await user.Writer.BroadcastConnectedAsync(connected);
+        }
+    }
 
-            await user.SendTransmission(packet.Bytes);
+    private async Task BroadcastDisconnectedUser(User disconnected)
+    {
+        foreach (var user in _connectedUsers)
+        {
+            await user.Writer.BroadcastDisconnectedAsync(disconnected);
         }
     }
 }

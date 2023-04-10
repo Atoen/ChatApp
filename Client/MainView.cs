@@ -4,7 +4,6 @@ using ConsoleGUI.ConsoleDisplay;
 using ConsoleGUI.UI;
 using ConsoleGUI.UI.Widgets;
 using ConsoleGUI.Visuals.Figlet;
-using Server;
 
 namespace Client;
 
@@ -21,7 +20,7 @@ public class MainView
     public MainView()
     {
         Application.ApplicationExit += delegate { _client.Close(); };
-        
+
         var mainGrid = new Grid
         {
             Color = Color.MidnightBlue,
@@ -107,9 +106,9 @@ public class MainView
     private async void Send()
     {
         var message = _inputBox.Text.String;
-        
+
         if (message == string.Empty) return;
-        
+
         await _client.SendMessageAsync(message);
     }
 }

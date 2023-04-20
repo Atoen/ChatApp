@@ -1,9 +1,14 @@
 ﻿using System.Drawing;
 using ConsoleGUI;
 using ConsoleGUI.ConsoleDisplay;
-using ConsoleGUI.UI;
+using ConsoleGUI.UI.Events;
+using ConsoleGUI.UI.New;
 using ConsoleGUI.UI.Widgets;
 using ConsoleGUI.Visuals.Figlet;
+using BigText = ConsoleGUI.UI.BigText;
+using Button = ConsoleGUI.UI.Widgets.Button;
+using Entry = ConsoleGUI.UI.Widgets.Entry;
+using Label = ConsoleGUI.UI.Widgets.Label;
 
 namespace Client;
 
@@ -24,11 +29,14 @@ public class MainView
         var mainGrid = new Grid
         {
             Color = Color.MidnightBlue,
-            ShowGridLines = true
+            ShowGridLines = true,
+            ResizeMode = ResizeMode.Expand
         };
 
+        mainGrid.FitToScreen();
+
         mainGrid.Columns.Add(new Column());
-        mainGrid.Columns.Add(new Column());
+        mainGrid.Columns.Add(new Column(15));
         mainGrid.Rows.Add(new Row());
         mainGrid.Rows.Add(new Row());
         mainGrid.Rows.Add(new Row());
@@ -42,7 +50,7 @@ public class MainView
 
         _usernameEntry = new Entry
         {
-            InputMode = TextEntryMode.Alphanumeric,
+            InputMode = AllowedSymbols.Alphanumeric,
             MaxTextLenght = 12,
             Text = { String = "Username" }
         };
@@ -69,12 +77,14 @@ public class MainView
 
         var inputGrid = new Grid
         {
-            Color = Color.Empty,
-            InnerPadding = (1, 0)
+            Color = Color.Black,
+            InnerPadding = (1, 0),
+            ResizeMode = ResizeMode.Expand,
+            ShowGridLines = true
         };
 
         inputGrid.Columns.Add(new Column());
-        inputGrid.Columns.Add(new Column());
+        inputGrid.Columns.Add(new Column(10));
         inputGrid.Rows.Add(new Row());
 
         _inputBox = new TextBox
@@ -96,6 +106,8 @@ public class MainView
         inputGrid.SetColumnAndRow(_sendButton, 1, 0);
 
         mainGrid.SetColumnAndRow(inputGrid, 1, 2);
+
+        inputGrid.DoubleClick += (_, _) => { };
     }
 
     private async void Connect()

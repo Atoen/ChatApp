@@ -18,7 +18,7 @@ public class PacketReader : BinaryReader
     {
         var read = _stream.ReadByte();
 
-        if (read < 0) throw new NetworkInformationException();
+        if (read != 1) throw new NetworkInformationException();
 
         return (OpCode) read;
     }

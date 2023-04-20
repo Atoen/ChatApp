@@ -17,7 +17,9 @@ public class PacketWriter : BinaryWriter
 
     public void WriteMessage(string content)
     {
-        _stream.Write(BitConverter.GetBytes(content.Length));
+        var bytes = Encoding.UTF8.GetBytes(content);
+
+        _stream.Write(BitConverter.GetBytes(bytes.Length));
         _stream.Write(Encoding.UTF8.GetBytes(content));
     }
 
@@ -31,7 +33,9 @@ public class PacketWriter : BinaryWriter
 
     public async Task WriteMessageAsync(string content)
     {
-        await _stream.WriteAsync(BitConverter.GetBytes(content.Length));
-        await _stream.WriteAsync(Encoding.UTF8.GetBytes(content));
+        var bytes = Encoding.UTF8.GetBytes(content);
+
+        await _stream.WriteAsync(BitConverter.GetBytes(bytes.Length));
+        await _stream.WriteAsync(bytes);
     }
 }

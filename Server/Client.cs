@@ -20,19 +20,19 @@ public class Client
 
     public async Task ConnectToServerAsync(string username)
     {
+        if (_client.Connected) return;
+        
         if (_shouldOpenNewConnection)
         {
             _client = new TcpClient();
             _shouldOpenNewConnection = false;
         }
 
-        if (_client.Connected) return;
-
         Console.Title = "Connecting...";
 
         try
         {
-            await _client.ConnectAsync("192.168.100.8", 13000);
+            await _client.ConnectAsync("127.0.0.1", 13000);
             _stream = _client.GetStream();
         }
         catch (SocketException e)

@@ -1,31 +1,26 @@
 ﻿using System.Drawing;
 using ConsoleGUI;
-using ConsoleGUI.ConsoleDisplay;
-using ConsoleGUI.UI.Events;
 using ConsoleGUI.UI.New;
+using ConsoleGUI.Visuals.Figlet;
 
 Application.Start();
 Input.TreatControlCAsInput = true;
 
-var label = new Label
+var label = new Button<Text>
 {
-    Text = new RichText("That's"),
+    Text = { Foreground = Color.Orange, Content = "o"},
     Position = (5, 5),
-    ResizeMode = ResizeMode.Stretch,
-    ColorTheme = Color.Blue,
-    MaxSize = (20, 3)
+    ResizeMode = ResizeMode.Grow,
+    ColorTheme = Color.RoyalBlue
 };
 
-var text = label.Text as RichText;
-
-text!.AppendRich(" rich", Color.Gold);
-
-text.RichData[^3].Background = Color.Red;
-text.RichData[5].TextMode = TextMode.Underline;
-
-label.MouseLeftDown += delegate(Control sender, MouseEventArgs eventArgs)
+label.OnClick = () =>
 {
-    if (sender is not Label {Text: RichText richText}) return;
+    label.Text.Content += " oro";
+    // label.Text.Font = Font.CalvinS;
+};
 
-    richText.Content += " fr";
+label.MouseRightDown += (sender, eventArgs) =>
+{
+    label.Text.Content = "01";
 };

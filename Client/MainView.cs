@@ -2,13 +2,16 @@
 using ConsoleGUI;
 using ConsoleGUI.ConsoleDisplay;
 using ConsoleGUI.UI.Events;
-using ConsoleGUI.UI.New;
+using ConsoleGUI.UI.Old.Widgets;
 using ConsoleGUI.UI.Widgets;
 using ConsoleGUI.Visuals.Figlet;
-using BigText = ConsoleGUI.UI.BigText;
-using Button = ConsoleGUI.UI.Widgets.Button;
-using Entry = ConsoleGUI.UI.Widgets.Entry;
-using Label = ConsoleGUI.UI.Widgets.Label;
+using BigText = ConsoleGUI.UI.Old.BigText;
+using Button = ConsoleGUI.UI.Old.Widgets.Button;
+using Column = ConsoleGUI.UI.Old.Widgets.Column;
+using Entry = ConsoleGUI.UI.Old.Widgets.Entry;
+using Grid = ConsoleGUI.UI.Old.Widgets.Grid;
+using Label = ConsoleGUI.UI.Old.Widgets.Label;
+using Row = ConsoleGUI.UI.Old.Widgets.Row;
 
 namespace Client;
 

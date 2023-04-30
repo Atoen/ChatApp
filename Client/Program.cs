@@ -1,31 +1,33 @@
-﻿using System.Drawing;
+﻿using System.Diagnostics;
+using System.Drawing;
 using ConsoleGUI;
-using ConsoleGUI.ConsoleDisplay;
-using ConsoleGUI.UI.Events;
-using ConsoleGUI.UI.New;
+using ConsoleGUI.UI.Widgets;
+using ConsoleGUI.Visuals;
+// using ConsoleGUI.UI.Old.Widgets;
+using ConsoleGUI.Visuals.Figlet;
+using Entry = ConsoleGUI.UI.Widgets.Entry;
 
 Application.Start();
-Input.TreatControlCAsInput = true;
 
-var label = new Label
+var grid = new Grid
 {
-    Text = new RichText("That's"),
-    Position = (5, 5),
-    ResizeMode = ResizeMode.Stretch,
-    ColorTheme = Color.Blue,
-    MaxSize = (20, 3)
+    // Size = (10, 10),
+    Columns = {new Column(12), new Column(10)},
+    Rows =
+    {
+        new Row(4),
+        new Row(12)
+    },
+    // MinSize = (10, 10),
+    // MaxSize = (10, 10),
+    
+    FillScreen = true,
+    Lines = {Visible = true, Color = Color.Black, Style = GridLineStyle.SingleBold}
 };
 
-var text = label.Text as RichText;
 
-text!.AppendRich(" rich", Color.Gold);
 
-text.RichData[^3].Background = Color.Red;
-text.RichData[5].TextMode = TextMode.Underline;
 
-label.MouseLeftDown += delegate(Control sender, MouseEventArgs eventArgs)
-{
-    if (sender is not Label {Text: RichText richText}) return;
 
-    richText.Content += " fr";
-};
+
+

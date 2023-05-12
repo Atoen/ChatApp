@@ -35,7 +35,7 @@ public class PacketWriter : BinaryWriter
     {
         var bytes = Encoding.UTF8.GetBytes(content);
 
-        await _stream.WriteAsync(BitConverter.GetBytes(bytes.Length));
+        Write7BitEncodedInt(bytes.Length);
         await _stream.WriteAsync(bytes);
     }
 }

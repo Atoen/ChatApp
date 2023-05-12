@@ -1,32 +1,42 @@
-﻿using System.Diagnostics;
-using System.Drawing;
-using ConsoleGUI;
-using ConsoleGUI.UI.Widgets;
-using ConsoleGUI.Visuals;
-// using ConsoleGUI.UI.Old.Widgets;
-using ConsoleGUI.Visuals.Figlet;
-using Entry = ConsoleGUI.UI.Widgets.Entry;
+﻿using Server;
 
-Application.Start();
+var client = new Client();
 
-var grid = new Grid
+AppDomain.CurrentDomain.ProcessExit += delegate
 {
-    // Size = (10, 10),
-    Columns = {new Column(12), new Column(10)},
-    Rows =
-    {
-        new Row(4),
-        new Row(12)
-    },
-    // MinSize = (10, 10),
-    // MaxSize = (10, 10),
-    
-    FillScreen = true,
-    Lines = {Visible = true, Color = Color.Black, Style = GridLineStyle.SingleBold}
+    client.Close();
 };
 
+Console.Write("Enter username: ");
 
+var username = Console.ReadLine() ?? string.Empty;
 
+Console.WriteLine("Connecting...");
+var result = await client.ConnectToServerAsync(username);
+result.Switch(
+    success => Console.Clear(),
+    error => Console.WriteLine(error.Value)
+);
+
+client.MessageReceived += delegate(object? _, Message message)
+{
+    Console.WriteLine(message);
+};
+
+client.Listen();
+
+string? message;
+do
+{
+    message = Console.ReadLine();
+    
+    var (left, top) = Console.GetCursorPosition();
+    Console.SetCursorPosition(left, top - 1);
+    
+    if (!string.IsNullOrWhiteSpace(message)) await client.SendMessageAsync(message);
+} while (message != "/exit");
+
+await Task.Delay(Timeout.Infinite);
 
 
 

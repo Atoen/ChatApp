@@ -8,8 +8,11 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\ConsoleGUI\ConsoleGUI\ConsoleGUI.csproj" />
       <ProjectReference Include="..\Server\Server.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="OneOf" Version="3.0.243" />
     </ItemGroup>
 
 </Project>

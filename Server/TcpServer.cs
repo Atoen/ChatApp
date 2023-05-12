@@ -34,9 +34,8 @@ public class TcpServer
             user.TransmissionReceived += ConnectionOnTransmissionReceived;
             user.StartListening();
 
-            await BroadcastConnectedUser(user);
-
             _connectedUsers.Add(user);
+            await BroadcastConnectedUser(user);
         }
     }
 
@@ -53,6 +52,7 @@ public class TcpServer
 
             case OpCode.SendMessage:
                 var message = await user.Reader.ReadMessageAsync();
+                await SendMessage(user.Username, message);
                 _log.Information("<{Username}> \"{Message}\"", user.Username, message);
                 break;
 
@@ -71,15 +71,31 @@ public class TcpServer
         using var packetReader = new PacketReader(client.GetStream());
 
         var username = await packetReader.GetNewUserNameAsync();
+        
+        ValidateUsername(username, out var validated);
+        
         var uid = Guid.NewGuid().ToString();
 
-        _log.Information("User {Username} has connected", username);
+        _log.Information("User {Username} has connected", validated);
 
-        var user = new User(client, username, uid);
-
-        await user.Writer.ConfirmConnectionAsync(user);
+        var user = new User(client, validated, uid);
 
         return user;
+    }
+    
+    private void ValidateUsername(string newUsername, out string validated)
+    {
+        validated = newUsername;
+        
+        if (_connectedUsers.All(user => user.Username != newUsername)) return;
+
+        var suffix = 1;
+        do
+        {
+            newUsername = $"{newUsername}_{suffix++}";
+        } while (_connectedUsers.Any(user => user.Username == newUsername));
+
+        validated = newUsername;
     }
 
     private async Task UserDisconnected(User user)
@@ -90,6 +106,16 @@ public class TcpServer
         await BroadcastDisconnectedUser(user);
 
         user.Dispose();
+    }
+
+    private async Task SendMessage(string sender, string message)
+    {
+        foreach (var user in _connectedUsers)
+        {
+            await user.Writer.WriteOpCodeAsync(OpCode.ReceiveMessage);
+            await user.Writer.WriteMessageAsync(sender);
+            await user.Writer.WriteMessageAsync(message);
+        }
     }
 
     private async Task BroadcastConnectedUser(User connected)

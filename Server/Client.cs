@@ -1,5 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Net.Sockets;
+using OneOf;
+using OneOf.Types;
 using Server.Packets;
 
 namespace Server;
@@ -11,6 +13,9 @@ public class Client
         _client = new TcpClient();
     }
 
+    public bool Connected => _client.Connected;
+    public event EventHandler<Message>? MessageReceived;
+
     private TcpClient _client;
     private PacketReader _packetReader = default!;
     private PacketWriter _packetWriter = default!;
@@ -18,17 +23,15 @@ public class Client
 
     private bool _shouldOpenNewConnection;
 
-    public async Task ConnectToServerAsync(string username)
+    public async Task<OneOf<Success, Error<string>>> ConnectToServerAsync(string username)
     {
-        if (_client.Connected) return;
+        if (_client.Connected) return new Error<string>("Client already connected.");
         
         if (_shouldOpenNewConnection)
         {
             _client = new TcpClient();
             _shouldOpenNewConnection = false;
         }
-
-        Console.Title = "Connecting...";
 
         try
         {
@@ -37,8 +40,7 @@ public class Client
         }
         catch (SocketException e)
         {
-            Console.Title = e.Message;
-            return;
+            return new Error<string>(e.Message);
         }
 
         _packetReader = new PacketReader(_stream);
@@ -46,8 +48,10 @@ public class Client
 
         await _packetWriter.SendNewUserNameAsync(username);
 
-        await ProcessIncomingPackets();
+        return new Success();
     }
+
+    public void Listen() => Task.Run(ProcessIncomingPackets);
 
     public async Task SendMessageAsync(string message)
     {
@@ -92,21 +96,18 @@ public class Client
                     break;
 
                 case OpCode.BroadcastConnected:
-                    var user = await _packetReader.ReceiveBroadcastConnectedAsync();
-                    Console.Title = $"{user} connected!";
-                    break;
+                     var (user, _) = await _packetReader.ReceiveBroadcastConnectedAsync();
+                     MessageReceived?.Invoke(this, new Message($"{user} has connected to the server!", "Server", DateTime.Now));
+                     break;
 
                 case OpCode.BroadcastDisconnected:
-                    var u = await _packetReader.ReceiveConnectionConfirmationAsync();
-                    Console.Title = $"{u} disconnected!";
+                    var (usr, _) = await _packetReader.ReceiveBroadcastDisconnectedAsync();
+                    MessageReceived?.Invoke(this, new Message($"{usr} has disconnected from the server!", "Server", DateTime.Now));
                     break;
 
                 case OpCode.ReceiveMessage:
-                    break;
-
-                case OpCode.ConfirmConnection:
-                    var me = await _packetReader.ReceiveConnectionConfirmationAsync();
-                    Console.Title = $"Connected as {me}";
+                    var (username, message) = await _packetReader.GetMessageAsync();
+                    MessageReceived?.Invoke(this, new Message(message, username, DateTime.Now));
                     break;
 
                 default:

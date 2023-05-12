@@ -17,9 +17,6 @@ public class PacketReader : BinaryReader
     public OpCode ReadOpCode()
     {
         var read = _stream.ReadByte();
-
-        if (read != 1) throw new NetworkInformationException();
-
         return (OpCode) read;
     }
 
@@ -51,7 +48,7 @@ public class PacketReader : BinaryReader
 
     public async Task<string> ReadMessageAsync()
     {
-        var length = ReadInt32();
+        var length = Read7BitEncodedInt();
 
         var buffer = ArrayPool<byte>.Shared.Rent(length);
 

@@ -4,8 +4,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Server", "Server\Server.csp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Client", "Client\Client.csproj", "{C57FAE9C-B183-434D-A064-C359537EFD96}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleGUI", "..\ConsoleGUI\ConsoleGUI\ConsoleGUI.csproj", "{753933DF-BD5A-41A4-936F-791BB907D59F}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,9 +18,5 @@ Global
 		{C57FAE9C-B183-434D-A064-C359537EFD96}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C57FAE9C-B183-434D-A064-C359537EFD96}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C57FAE9C-B183-434D-A064-C359537EFD96}.Release|Any CPU.Build.0 = Release|Any CPU
-		{753933DF-BD5A-41A4-936F-791BB907D59F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{753933DF-BD5A-41A4-936F-791BB907D59F}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{753933DF-BD5A-41A4-936F-791BB907D59F}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{753933DF-BD5A-41A4-936F-791BB907D59F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

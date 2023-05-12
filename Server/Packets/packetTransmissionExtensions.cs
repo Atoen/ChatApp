@@ -23,18 +23,19 @@ public static class PacketTransmissionExtensions
         await writer.WriteMessageAsync(connectedUser.Uid);
     }
 
-    public static async Task ConfirmConnectionAsync(this PacketWriter writer, User user)
-    {
-        await writer.WriteOpCodeAsync(OpCode.ConfirmConnection);
-        await writer.WriteMessageAsync(user.Username);
-        await writer.WriteMessageAsync(user.Uid);
-    }
-
     public static async Task BroadcastDisconnectedAsync(this PacketWriter writer, User disconnectedUser)
     {
         await writer.WriteOpCodeAsync(OpCode.BroadcastDisconnected);
         await writer.WriteMessageAsync(disconnectedUser.Username);
         await writer.WriteMessageAsync(disconnectedUser.Uid);
+    }
+
+    public static async Task<(string username, string message)> GetMessageAsync(this PacketReader reader)
+    {
+        var username = await reader.ReadMessageAsync();
+        var message = await reader.ReadMessageAsync();
+
+        return (username, message);
     }
 
     public static async Task<string> GetNewUserNameAsync(this PacketReader reader)
@@ -56,14 +57,6 @@ public static class PacketTransmissionExtensions
     }
 
     public static async Task<(string username, string uid)> ReceiveBroadcastDisconnectedAsync(this PacketReader reader)
-    {
-        var username = await reader.ReadMessageAsync();
-        var uid = await reader.ReadMessageAsync();
-
-        return (username, uid);
-    }
-
-    public static async Task<(string username, string uid)> ReceiveConnectionConfirmationAsync(this PacketReader reader)
     {
         var username = await reader.ReadMessageAsync();
         var uid = await reader.ReadMessageAsync();

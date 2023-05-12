@@ -8,5 +8,4 @@ public enum OpCode : byte
     ReceiveMessage,
     BroadcastConnected,
     BroadcastDisconnected,
-    ConfirmConnection,
 }

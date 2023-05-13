@@ -2,33 +2,40 @@
 using System.Net.Sockets;
 using Serilog;
 using Serilog.Core;
+using Server.Commands;
 using Server.Packets;
 
 namespace Server;
 
 public class TcpServer
 {
-    public TcpServer(IPEndPoint endPoint) => _listener = new TcpListener(endPoint);
+    public TcpServer(IPEndPoint endPoint)
+    {
+        _listener = new TcpListener(endPoint);
+        _commandHandler = new CommandHandler(this, '/');
+    }
 
-    public TcpServer(IPAddress address, int port) => _listener = new TcpListener(address, port);
+    public TcpServer(IPAddress address, int port)
+    {
+        _listener = new TcpListener(address, port);
+        _commandHandler = new CommandHandler(this, '/');
+    }
+
+    private readonly ICommandHandler _commandHandler;
 
     private readonly TcpListener _listener;
     private readonly List<User> _connectedUsers = new();
-    private readonly Logger _log = new LoggerConfiguration().
-        MinimumLevel.Debug().
-        WriteTo.Console().
-        CreateLogger();
 
     public async Task Start()
     {
         _listener.Start();
 
-        _log.Information("Server listening on {Address}", _listener.Server.LocalEndPoint?.ToString());
+        Log.Information("Server listening on {Address}", _listener.Server.LocalEndPoint?.ToString());
 
         while (true)
         {
             var client = await _listener.AcceptTcpClientAsync();
-            _log.Debug("Accepted connection from {Remote}", client.Client.RemoteEndPoint?.ToString());
+            Log.Debug("Accepted connection from {Remote}", client.Client.RemoteEndPoint?.ToString());
 
             var user = await ConnectUser(client);
             user.TransmissionReceived += ConnectionOnTransmissionReceived;
@@ -51,9 +58,7 @@ public class TcpServer
                 break;
 
             case OpCode.SendMessage:
-                var message = await user.Reader.ReadMessageAsync();
-                await SendMessage(user.Username, message);
-                _log.Information("<{Username}> \"{Message}\"", user.Username, message);
+                await MessageReceived(user);
                 break;
 
             case OpCode.BroadcastConnected:
@@ -66,6 +71,20 @@ public class TcpServer
         }
     }
 
+    private async Task MessageReceived(User user)
+    {
+        var message = await user.Reader.ReadMessageAsync();
+        Log.Information("<{Username}> \"{UserMessage}\"", user.Username, message);
+
+        if (message.StartsWith(_commandHandler.Prefix))
+        {
+            _commandHandler.Handle(user, message);
+            return;
+        }
+        
+        await BroadcastMessage(user.Username, message);
+    }
+
     private async Task<User> ConnectUser(TcpClient client)
     {
         using var packetReader = new PacketReader(client.GetStream());
@@ -76,7 +95,7 @@ public class TcpServer
         
         var uid = Guid.NewGuid().ToString();
 
-        _log.Information("User {Username} has connected", validated);
+        Log.Information("User {Username} has connected", validated);
 
         var user = new User(client, validated, uid);
 
@@ -100,7 +119,7 @@ public class TcpServer
 
     private async Task UserDisconnected(User user)
     {
-        _log.Information("User {Username} has disconnected", user.Username);
+        Log.Information("User {Username} has disconnected", user.Username);
 
         _connectedUsers.Remove(user);
         await BroadcastDisconnectedUser(user);
@@ -108,13 +127,13 @@ public class TcpServer
         user.Dispose();
     }
 
-    private async Task SendMessage(string sender, string message)
+    internal async Task BroadcastMessage(string sender, string message)
     {
         foreach (var user in _connectedUsers)
         {
             await user.Writer.WriteOpCodeAsync(OpCode.ReceiveMessage);
-            await user.Writer.WriteMessageAsync(sender);
-            await user.Writer.WriteMessageAsync(message);
+            await user.Writer.WriteMessageContentAsync(sender);
+            await user.Writer.WriteMessageContentAsync(message);
         }
     }
 
@@ -132,5 +151,12 @@ public class TcpServer
         {
             await user.Writer.BroadcastDisconnectedAsync(disconnected);
         }
+    }
+
+    internal async Task Respond(User user, string response)
+    {
+        await user.Writer.WriteOpCodeAsync(OpCode.ReceiveMessage);
+        await user.Writer.WriteMessageContentAsync(SystemMessage.SystemMessageSender);
+        await user.Writer.WriteMessageContentAsync(response);
     }
 }

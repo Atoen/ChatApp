@@ -7,27 +7,27 @@ public static class PacketTransmissionExtensions
     public static async Task SendMessageAsync(this PacketWriter writer, string message)
     {
         await writer.WriteOpCodeAsync(OpCode.SendMessage);
-        await writer.WriteMessageAsync(message);
+        await writer.WriteMessageContentAsync(message);
     }
 
     public static async Task SendNewUserNameAsync(this PacketWriter writer, string username)
     {
         await writer.WriteOpCodeAsync(OpCode.Connect);
-        await writer.WriteMessageAsync(username);
+        await writer.WriteMessageContentAsync(username);
     }
 
     public static async Task BroadcastConnectedAsync(this PacketWriter writer, User connectedUser)
     {
         await writer.WriteOpCodeAsync(OpCode.BroadcastConnected);
-        await writer.WriteMessageAsync(connectedUser.Username);
-        await writer.WriteMessageAsync(connectedUser.Uid);
+        await writer.WriteMessageContentAsync(connectedUser.Username);
+        await writer.WriteMessageContentAsync(connectedUser.Uid);
     }
 
     public static async Task BroadcastDisconnectedAsync(this PacketWriter writer, User disconnectedUser)
     {
         await writer.WriteOpCodeAsync(OpCode.BroadcastDisconnected);
-        await writer.WriteMessageAsync(disconnectedUser.Username);
-        await writer.WriteMessageAsync(disconnectedUser.Uid);
+        await writer.WriteMessageContentAsync(disconnectedUser.Username);
+        await writer.WriteMessageContentAsync(disconnectedUser.Uid);
     }
 
     public static async Task<(string username, string message)> GetMessageAsync(this PacketReader reader)

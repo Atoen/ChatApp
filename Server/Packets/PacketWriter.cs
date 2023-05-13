@@ -15,7 +15,7 @@ public class PacketWriter : BinaryWriter
 
     public void WriteOpCode(OpCode opCode) => _stream.WriteByte((byte) opCode);
 
-    public void WriteMessage(string content)
+    public void WriteMessageContent(string content)
     {
         var bytes = Encoding.UTF8.GetBytes(content);
 
@@ -31,7 +31,7 @@ public class PacketWriter : BinaryWriter
         await _stream.WriteAsync(buffer.AsMemory(0, 1));
     }
 
-    public async Task WriteMessageAsync(string content)
+    public async Task WriteMessageContentAsync(string content)
     {
         var bytes = Encoding.UTF8.GetBytes(content);
 

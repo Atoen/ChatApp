@@ -97,17 +97,17 @@ public class Client
 
                 case OpCode.BroadcastConnected:
                      var (user, _) = await _packetReader.ReceiveBroadcastConnectedAsync();
-                     MessageReceived?.Invoke(this, new Message($"{user} has connected to the server!", "Server", DateTime.Now));
+                     MessageReceived?.Invoke(this, new SystemMessage($"{user} has connected to the server."));
                      break;
 
                 case OpCode.BroadcastDisconnected:
                     var (usr, _) = await _packetReader.ReceiveBroadcastDisconnectedAsync();
-                    MessageReceived?.Invoke(this, new Message($"{usr} has disconnected from the server!", "Server", DateTime.Now));
+                    MessageReceived?.Invoke(this, new SystemMessage($"{usr} has disconnected from the server."));
                     break;
 
                 case OpCode.ReceiveMessage:
                     var (username, message) = await _packetReader.GetMessageAsync();
-                    MessageReceived?.Invoke(this, new Message(message, username, DateTime.Now));
+                    MessageReceived?.Invoke(this, new UserMessage(username, message));
                     break;
 
                 default:

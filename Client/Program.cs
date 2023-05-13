@@ -2,14 +2,12 @@
 
 var client = new Client();
 
-AppDomain.CurrentDomain.ProcessExit += delegate
-{
-    client.Close();
-};
+AppDomain.CurrentDomain.ProcessExit += (_, _) => client.Close();
+Console.CancelKeyPress += (_, _) => client.Close();
 
 Console.Write("Enter username: ");
 
-var username = Console.ReadLine() ?? string.Empty;
+var username = Console.ReadLine() ?? "User";
 
 Console.WriteLine("Connecting...");
 var result = await client.ConnectToServerAsync(username);
@@ -28,11 +26,12 @@ client.Listen();
 string? message;
 do
 {
-    message = Console.ReadLine();
+    message = Console.ReadLine() ?? string.Empty;
     
-    var (left, top) = Console.GetCursorPosition();
-    Console.SetCursorPosition(left, top - 1);
-    
+    Console.CursorTop--;
+    Console.Write($"\r{new string(' ', message.Length)}");
+    Console.CursorLeft = 0;
+
     if (!string.IsNullOrWhiteSpace(message)) await client.SendMessageAsync(message);
 } while (message != "/exit");
 

@@ -43,7 +43,7 @@ public sealed class User : IDisposable
 
     public async Task SendOpCodeAsync(OpCode opCode) => await Writer.WriteOpCodeAsync(opCode);
 
-    public async Task SendTransmissionAsync(string content) => await Writer.WriteMessageAsync(content);
+    public async Task SendTransmissionAsync(string content) => await Writer.WriteMessageContentAsync(content);
 
     public void Dispose()
     {

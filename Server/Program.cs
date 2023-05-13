@@ -5,6 +5,11 @@ using Server;
 
 Console.OutputEncoding = Encoding.UTF8;
 
+Log.Logger = new LoggerConfiguration().
+    MinimumLevel.Debug().
+    WriteTo.Console().
+    CreateLogger();
+
 var address = IPAddress.Parse("127.0.0.1");
 var endpoint = new IPEndPoint(address, 13000);
 

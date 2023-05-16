@@ -24,7 +24,7 @@ public class TcpServer
     private readonly ICommandHandler _commandHandler;
 
     private readonly TcpListener _listener;
-    private readonly List<User> _connectedUsers = new();
+    internal List<User> ConnectedUsers { get; } = new();
 
     public async Task Start()
     {
@@ -41,7 +41,7 @@ public class TcpServer
             user.TransmissionReceived += ConnectionOnTransmissionReceived;
             user.StartListening();
 
-            _connectedUsers.Add(user);
+            ConnectedUsers.Add(user);
             await BroadcastConnectedUser(user);
         }
     }
@@ -78,7 +78,7 @@ public class TcpServer
 
         if (message.StartsWith(_commandHandler.Prefix))
         {
-            _commandHandler.Handle(user, message);
+            await _commandHandler.Handle(user, message);
             return;
         }
         
@@ -106,13 +106,13 @@ public class TcpServer
     {
         validated = newUsername;
         
-        if (_connectedUsers.All(user => user.Username != newUsername)) return;
+        if (ConnectedUsers.All(user => user.Username != newUsername)) return;
 
         var suffix = 1;
         do
         {
             newUsername = $"{newUsername}_{suffix++}";
-        } while (_connectedUsers.Any(user => user.Username == newUsername));
+        } while (ConnectedUsers.Any(user => user.Username == newUsername));
 
         validated = newUsername;
     }
@@ -121,7 +121,7 @@ public class TcpServer
     {
         Log.Information("User {Username} has disconnected", user.Username);
 
-        _connectedUsers.Remove(user);
+        ConnectedUsers.Remove(user);
         await BroadcastDisconnectedUser(user);
 
         user.Dispose();
@@ -129,7 +129,7 @@ public class TcpServer
 
     internal async Task BroadcastMessage(string sender, string message)
     {
-        foreach (var user in _connectedUsers)
+        foreach (var user in ConnectedUsers)
         {
             await user.Writer.WriteOpCodeAsync(OpCode.ReceiveMessage);
             await user.Writer.WriteMessageContentAsync(sender);
@@ -139,7 +139,7 @@ public class TcpServer
 
     private async Task BroadcastConnectedUser(User connected)
     {
-        foreach (var user in _connectedUsers)
+        foreach (var user in ConnectedUsers)
         {
             await user.Writer.BroadcastConnectedAsync(connected);
         }
@@ -147,7 +147,7 @@ public class TcpServer
 
     private async Task BroadcastDisconnectedUser(User disconnected)
     {
-        foreach (var user in _connectedUsers)
+        foreach (var user in ConnectedUsers)
         {
             await user.Writer.BroadcastDisconnectedAsync(disconnected);
         }

@@ -1,7 +1,10 @@
-﻿using System.Reflection;
+﻿using System.Diagnostics;
+using System.Reflection;
 using MethodDecorator.Fody.Interfaces;
+using Serilog;
+using Server.Commands;
 
-namespace Server.Commands.Attributes;
+namespace Server.Attributes;
 
 [AttributeUsage(AttributeTargets.Method)]
 public class InitializeHandlerAttribute : Attribute, IMethodDecorator
@@ -10,23 +13,32 @@ public class InitializeHandlerAttribute : Attribute, IMethodDecorator
     {
         if (instance is not ICommandHandler commandHandler) return;
 
+        var start = Stopwatch.GetTimestamp();
+        Log.Debug("Initializing commands");
+
         var methodInfos = instance.GetType().GetMethods(BindingFlags.NonPublic | BindingFlags.Instance);
         var commandHandlers = from methodInfo in methodInfos
             let attribute = methodInfo.GetCustomAttribute<CommandAttribute>()
             where attribute is not null
-            select new {methodInfo, attribute.CommandName};
+            select new {methodInfo, CommandName = attribute.Text};
 
         foreach (var handler in commandHandlers)
         {
-            var name = handler.CommandName;
-            if (!commandHandler.CaseSensitive) name = name.ToLower();
+            var commandName = handler.CommandName;
+            
+            var invokeName = commandName;
+            if (!commandHandler.CaseSensitive) invokeName = invokeName.ToLower();
 
             var (count, usesRemainder) = MatchCommandArgsCount(handler.methodInfo);
-
             var executor = CreateExecutor(count, usesRemainder, commandHandler, handler.methodInfo);
 
-            commandHandler.Handlers.Add(name, executor);
+            // commandHandler.Handlers.Add(invokeName, executor);
+            Log.Verbose("Registered {Command} command", commandName);
         }
+
+        var stop = Stopwatch.GetTimestamp();
+        var elapsed = TimeSpan.FromTicks(stop - start);
+        Log.Debug("Registered commands in {Time}", elapsed);
     }
     
     private static (int paramsCount, bool usesRemainder) MatchCommandArgsCount(MethodInfo methodInfo)

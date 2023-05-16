@@ -35,7 +35,7 @@ public class Client
 
         try
         {
-            await _client.ConnectAsync("127.0.0.1", 13000);
+            await _client.ConnectAsync("37.128.72.106", 13000);
             _stream = _client.GetStream();
         }
         catch (SocketException e)
@@ -97,12 +97,12 @@ public class Client
 
                 case OpCode.BroadcastConnected:
                      var (user, _) = await _packetReader.ReceiveBroadcastConnectedAsync();
-                     MessageReceived?.Invoke(this, new SystemMessage($"{user} has connected to the server."));
+                     MessageReceived?.Invoke(this, new Message($"{user} has connected to the server."));
                      break;
 
                 case OpCode.BroadcastDisconnected:
                     var (usr, _) = await _packetReader.ReceiveBroadcastDisconnectedAsync();
-                    MessageReceived?.Invoke(this, new SystemMessage($"{usr} has disconnected from the server."));
+                    MessageReceived?.Invoke(this, new Message($"{usr} has disconnected from the server."));
                     break;
 
                 case OpCode.ReceiveMessage:

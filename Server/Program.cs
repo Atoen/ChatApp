@@ -10,7 +10,7 @@ Log.Logger = new LoggerConfiguration().
     WriteTo.Console().
     CreateLogger();
 
-var address = IPAddress.Parse("127.0.0.1");
+var address = IPAddress.Parse("192.168.1.108");
 var endpoint = new IPEndPoint(address, 13000);
 
 var server = new TcpServer(endpoint);

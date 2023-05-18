@@ -1,6 +1,6 @@
 ﻿namespace Server.Commands;
 
-public struct CommandContext
+public readonly struct CommandContext
 {
     public CommandContext(User user, params string[] args)
     {

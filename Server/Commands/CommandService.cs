@@ -14,7 +14,7 @@ public class CommandService
 
     private readonly HashSet<ModuleInfo> _modules = new();
     private readonly ConcurrentDictionary<string, CommandInfo> _commands = new();
-    private readonly ConcurrentDictionary<CommandInfo, ICommandExecutor> _commandExecutors = new();
+    private readonly ConcurrentDictionary<CommandInfo, CommandExecutor> _commandExecutors = new();
 
     public void RegisterCommands(IEnumerable<CommandInfo> commands)
     {
@@ -64,7 +64,7 @@ public class CommandService
             return new Error<string>($"Unable to execute command '{args[0]}'.");
         }
 
-        var context = new CommandContext(user, args);
+        var context = new CommandContext(user, args[1..]);
 
         Log.Debug("Executing {CommandName} for {Username}", command, user.Username);
         
@@ -81,9 +81,9 @@ public class CommandService
         return new Success();
     }
 
-    private static Dictionary<CommandInfo, ICommandExecutor> CreateExecutors(IEnumerable<CommandInfo> commands)
+    private static Dictionary<CommandInfo, CommandExecutor> CreateExecutors(IEnumerable<CommandInfo> commands)
     {
-        var dict = new Dictionary<CommandInfo, ICommandExecutor>();
+        var dict = new Dictionary<CommandInfo, CommandExecutor>();
         foreach (var command in commands)
         {
             switch (command.Parameters.Count)

@@ -9,9 +9,9 @@ public class ModuleInfo
     public ModuleInfo? Parent { get; internal set; }
     public bool IsSubmodule => Parent is not null;
 
-    public ModuleInfo(Module module) => Module = module;
+    public ModuleInfo(Module instance) => Instance = instance;
 
-    internal Module Module { get; }
+    internal Module Instance { get; }
     
     private readonly List<Attribute> _attributes = new();
     private readonly List<CommandInfo> _commands = new();

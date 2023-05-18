@@ -1,4 +1,5 @@
-﻿using Server.Attributes;
+﻿using System.Globalization;
+using Server.Attributes;
 using Server.Commands;
 
 namespace Server.Modules;
@@ -20,4 +21,12 @@ public class RespondModule : Module
     
     [Command("time"), Alias("t"), Summary("Displays current server time")]
     public async Task TimeCommand() => await Context.Respond(DateTime.Now.ToLongTimeString());
+
+    [Command("wait")]
+    public async Task MsCommand(string delay)
+    {
+        var timeSpan = TimeSpan.Parse(delay);
+        await Task.Delay(timeSpan);
+        await Context.Respond($"Waited for {timeSpan}");
+    }
 }

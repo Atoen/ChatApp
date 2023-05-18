@@ -1,7 +1,6 @@
 ﻿using System.Net;
 using System.Net.Sockets;
 using Serilog;
-using Serilog.Core;
 using Server.Commands;
 using Server.Packets;
 

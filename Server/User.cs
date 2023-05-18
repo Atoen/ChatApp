@@ -38,6 +38,13 @@ public sealed class User : IDisposable
             TransmissionReceived?.Invoke(this, opCode);
         }
     }
+    
+    public async Task Respond(string response)
+    {
+        await Writer.WriteOpCodeAsync(OpCode.ReceiveMessage);
+        await Writer.WriteMessageContentAsync(SystemMessage.SystemMessageSender);
+        await Writer.WriteMessageContentAsync(response);
+    }
 
     public async Task<string> ReadTransmissionAsync() => await Reader.ReadMessageAsync();
 

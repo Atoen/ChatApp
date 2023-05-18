@@ -78,7 +78,7 @@ public class TcpServer
 
         if (message.StartsWith(_commandHandler.Prefix))
         {
-            await _commandHandler.Handle(user, message);
+            await _commandHandler.Handle(user, message[1..]);
             return;
         }
         
@@ -88,18 +88,14 @@ public class TcpServer
     private async Task<User> ConnectUser(TcpClient client)
     {
         using var packetReader = new PacketReader(client.GetStream());
-
         var username = await packetReader.GetNewUserNameAsync();
         
         ValidateUsername(username, out var validated);
-        
         var uid = Guid.NewGuid().ToString();
 
         Log.Information("User {Username} has connected", validated);
 
-        var user = new User(client, validated, uid);
-
-        return user;
+        return new User(client, validated, uid);
     }
     
     private void ValidateUsername(string newUsername, out string validated)

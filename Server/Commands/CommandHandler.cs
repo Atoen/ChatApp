@@ -1,11 +1,12 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Reflection;
+using OneOf.Types;
 using Serilog;
 using Server.Attributes;
 using Server.Modules;
-using Module = Server.Modules.Module;
-using ParameterInfo = Server.Modules.ParameterInfo;
+using Module = Server.Commands.Module;
+using ParameterInfo = Server.Commands.ParameterInfo;
 
 namespace Server.Commands;
 
@@ -14,55 +15,52 @@ public class CommandHandler : ICommandHandler
     public CommandHandler(TcpServer server, char prefix, bool caseSensitive = false)
     {
         _server = server;
+        _commandService = new CommandService();
 
         Prefix = prefix;
         CaseSensitive = caseSensitive;
 
         _modules = LoadModules();
-    }
-
-    public async Task Handle(User sender, string command)
-    {
-        var commandBody = command[1..];
-        var args = commandBody.Split(' ');
-
-        if (args.Length < 1) return;
-        if (!CaseSensitive) args[0] = args[0].ToLower();
-
-        if (!Handlers.TryGetValue(args[0], out var handler))
-        {
-            await _server.Respond(sender, $"Command \"{args[0]}\" not found");
-            return;
-        }
-
-        try
-        {
-            Log.Debug("Executing '{Command}' for {User}", commandBody, sender.Username);
-            await handler.Invoke(sender, args[1..]);
-        }
-        catch (Exception e)
-        {
-            Log.Information("Error while executing {Command} for {User}: {Error}",
-                command, sender.Username, e.Message);
-
-            await _server.Respond(sender, e.Message);
-        }
+        _commandService.RegisterCommands(_modules.SelectMany(x => x.Commands));
     }
 
     public char Prefix { get; set; }
     public bool CaseSensitive { get; set; }
-    public Dictionary<string, CommandExecutionContext> Handlers { get; } = new();
 
     private readonly TcpServer _server;
     private readonly IReadOnlyList<ModuleInfo> _modules;
+    private readonly CommandService _commandService;
 
-    private static IReadOnlyList<ModuleInfo> LoadModules()
+    public async Task Handle(User sender, string command)
+    {
+        if (command.Length == 0) return;
+
+        var result = await _commandService.Execute(sender, command);
+        var response = result.Match(
+            success => string.Empty,
+            error => error.Value,
+            notFound => $"Command '{command}' not found");
+    
+        if (response != string.Empty)
+        {
+            await _server.Respond(sender, response);
+        }
+    }
+    
+    private IReadOnlyList<ModuleInfo> LoadModules()
     {
         var start = Stopwatch.GetTimestamp();
 
-        var modules = typeof(CommandHandler).Assembly.ExportedTypes.Where(type =>
-            typeof(Module).IsAssignableFrom(type) && type is {IsAbstract: false}).
-            Select(Activator.CreateInstance).Cast<Module>().ToList();
+        var moduleTypes = typeof(CommandHandler).Assembly.ExportedTypes.Where(type =>
+                typeof(Module).IsAssignableFrom(type) && type is {IsAbstract: false});
+
+        var modules = moduleTypes.Select(type =>
+        {
+            var constructor = type.GetConstructor(new[] {typeof(CommandService)});
+            return constructor is null
+                ? Activator.CreateInstance(type)
+                : Activator.CreateInstance(type, _commandService);
+        }).Cast<Module>().ToImmutableList();
 
         var moduleInfos = modules.Select(CreateModuleInfo).ToImmutableList();
 
@@ -76,7 +74,7 @@ public class CommandHandler : ICommandHandler
 
     private static ModuleInfo CreateModuleInfo(Module module)
     {
-        var moduleInfo = new ModuleInfo();
+        var moduleInfo = new ModuleInfo(module);
 
         var attributes = module.GetType().GetCustomAttributes();
         foreach (var attribute in attributes)
@@ -97,6 +95,11 @@ public class CommandHandler : ICommandHandler
             }
         }
 
+        if (moduleInfo.Name == string.Empty)
+        {
+            moduleInfo.Name = module.GetType().Name;
+        }
+
         var methods = from methodInfo in module.GetType().GetMethods()
             let commandAttribute = methodInfo.GetCustomAttribute<CommandAttribute>()
             where commandAttribute is not null
@@ -112,7 +115,7 @@ public class CommandHandler : ICommandHandler
 
     private static CommandInfo CreateCommandInfo(MethodInfo method, ModuleInfo module)
     {
-        var commandInfo = new CommandInfo
+        var commandInfo = new CommandInfo(method)
         {
             Module = module
         };

@@ -35,7 +35,7 @@ public class Client
 
         try
         {
-            await _client.ConnectAsync("37.128.72.106", 13000);
+            await _client.ConnectAsync("", 13000);
             _stream = _client.GetStream();
         }
         catch (SocketException e)

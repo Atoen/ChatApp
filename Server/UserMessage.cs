@@ -3,7 +3,7 @@
 public class SystemMessage : Message
 {
     public SystemMessage(string content) : base(content) { }
-    
+
     public static string SystemMessageSender { get; set; } = "Server";
 
     public override string ToString() => $"<{SystemMessageSender}> {Content}";
@@ -15,7 +15,7 @@ public class UserMessage : Message
     {
         Sender = sender;
     }
-    
+
     public string Sender { get; }
 
     public override string ToString() => $"[{Sender}] {Content}";
@@ -28,7 +28,7 @@ public class Message
         Content = content;
         TimeStamp = DateTime.Now;
     }
-    
+
     public string Content { get; }
     public DateTime TimeStamp { get; }
 

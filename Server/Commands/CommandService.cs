@@ -1,7 +1,9 @@
 ﻿using System.Collections.Concurrent;
+using System.Globalization;
 using OneOf;
 using OneOf.Types;
 using Serilog;
+using Server.Commands.Executors;
 
 namespace Server.Commands;
 
@@ -15,15 +17,18 @@ public class CommandService
     private readonly HashSet<ModuleInfo> _modules = new();
     private readonly ConcurrentDictionary<string, CommandInfo> _commands = new();
     private readonly ConcurrentDictionary<CommandInfo, CommandExecutor> _commandExecutors = new();
+    private readonly ConcurrentDictionary<Type, Converter<string, object>> _typeReaders = new();
 
     public void RegisterCommands(IEnumerable<CommandInfo> commands)
     {
+        _typeReaders.TryAdd(typeof(int), input => Convert.ChangeType(input, typeof(int)));
+
         var commandInfos = commands.ToList();
         foreach (var command in commandInfos)
         {
             _modules.Add(command.Module);
         }
-        
+
         var dict = commandInfos.SelectMany(x => x.InvokeNames,
                 (info, name) => new {info, name})
             .ToDictionary(x => x.name, x => x.info);
@@ -36,7 +41,7 @@ public class CommandService
                 Log.Warning("Failed to register {CommandName} command", key);
             }
         }
-        
+
         var executors = CreateExecutors(_commands.Values.Distinct());
         foreach (var (key, val) in executors)
         {
@@ -46,7 +51,7 @@ public class CommandService
                 Log.Warning("Failed to register {CommandName} executor", key.Name);
             }
         }
-        
+
         Log.Debug("Successfully Registered {ExecutorCount} executors", _commandExecutors.Count);
     }
 
@@ -57,7 +62,7 @@ public class CommandService
         {
             return new NotFound();
         }
-        
+
         if (!_commandExecutors.TryGetValue(commandInfo, out var executor))
         {
             Log.Warning("Unable to execute {Command}: executor not registered", args[0]);
@@ -67,14 +72,14 @@ public class CommandService
         var context = new CommandContext(user, args[1..]);
 
         Log.Debug("Executing {CommandName} for {Username}", command, user.Username);
-        
+
         try
         {
             await executor.Execute(context);
         }
         catch (Exception e)
         {
-            Log.Warning("Error when executing {CommandName}: {Error}", args[0], e.Message);
+            Log.Information("Error when executing {CommandName}: {Error}", args[0], e.Message);
             return new Error<string>(e.Message);
         }
 
@@ -83,21 +88,36 @@ public class CommandService
 
     private static Dictionary<CommandInfo, CommandExecutor> CreateExecutors(IEnumerable<CommandInfo> commands)
     {
+        var reader = new TypeReader(CultureInfo.InvariantCulture);
+
         var dict = new Dictionary<CommandInfo, CommandExecutor>();
         foreach (var command in commands)
         {
-            switch (command.Parameters.Count)
-            {
-                case 0:
-                    dict.Add(command, new CommandExecutor0(command));
-                    break;
-                
-                case 1:
-                    dict.Add(command, new CommandExecutor1(command));
-                    break;
-            }
+            var paramCount = command.Parameters.Count;
+
+            dict.Add(command, paramCount == 0
+                ? new CommandExecutor0(command)
+                : CreateParamExecutor(paramCount, command, reader));
         }
 
         return dict;
+    }
+
+    private static CommandExecutor CreateParamExecutor(int parameterCount, CommandInfo command, TypeReader reader)
+    {
+        var executorType = parameterCount switch
+        {
+            1 => typeof(CommandExecutor1<>),
+            2 => typeof(CommandExecutor2<,>),
+            3 => typeof(CommandExecutor3<,,>),
+            _ => throw new ArgumentOutOfRangeException(nameof(parameterCount), parameterCount, null)
+        };
+
+        var types = command.Parameters.Take(parameterCount).Select(x => x.Type).ToArray();
+        var genericExecutorType = executorType.MakeGenericType(types);
+
+        var executor = (CommandExecutor) Activator.CreateInstance(genericExecutorType, command, reader)!;
+
+        return executor;
     }
 }

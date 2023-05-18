@@ -7,7 +7,8 @@ Console.CancelKeyPress += (_, _) => client.Close();
 
 Console.Write("Enter username: ");
 
-var username = Console.ReadLine() ?? "User";
+var username = Console.ReadLine();
+if (string.IsNullOrWhiteSpace(username)) username = "User";
 
 Console.WriteLine("Connecting...");
 var result = await client.ConnectToServerAsync(username);
@@ -27,7 +28,7 @@ string? message;
 do
 {
     message = Console.ReadLine() ?? string.Empty;
-    
+
     Console.CursorTop--;
     Console.Write($"\r{new string(' ', message.Length)}");
     Console.CursorLeft = 0;

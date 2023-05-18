@@ -36,13 +36,13 @@ public class CommandHandler : ICommandHandler
             success => string.Empty,
             error => error.Value,
             notFound => $"Command '{command}' not found");
-    
+
         if (response != string.Empty)
         {
             await _server.Respond(sender, response);
         }
     }
-    
+
     private IReadOnlyList<ModuleInfo> LoadModules()
     {
         var start = Stopwatch.GetTimestamp();
@@ -137,6 +137,10 @@ public class CommandHandler : ICommandHandler
                     commandInfo.WithAlias(alias.Aliases);
                     break;
 
+                case ExtraArgsAttribute extraArgs:
+                    commandInfo.ExtraArgsHandleMode = extraArgs.HandleMode;
+                    break;
+
                 default:
                     commandInfo.AddAttribute(attribute);
                     break;
@@ -151,9 +155,16 @@ public class CommandHandler : ICommandHandler
 
     private static ParameterInfo CreateParameterInfo(System.Reflection.ParameterInfo parameter, CommandInfo command)
     {
+        var parameterType = parameter.ParameterType;
+        if (parameterType != typeof(string) && !ImplementsIConvertible(parameterType))
+        {
+            throw new ArgumentException("Command parameter type must implement IConvertible interface",
+                nameof(parameter));
+        }
+        
         var parameterInfo = new ParameterInfo
         {
-            Type = parameter.ParameterType,
+            Type = parameterType,
             Command = command,
             IsOptional = parameter.IsOptional,
             DefaultValue = parameter.DefaultValue
@@ -177,6 +188,11 @@ public class CommandHandler : ICommandHandler
                     break;
 
                 case RemainderAttribute:
+                    if (parameterInfo.Type != typeof(string))
+                    {
+                        throw new InvalidAttributeUsageException("RemainderAttribute can only be used on string parameters.");
+                    }
+
                     parameterInfo.IsRemainder = true;
                     break;
 
@@ -187,5 +203,25 @@ public class CommandHandler : ICommandHandler
         }
 
         return parameterInfo;
+    }
+
+    private static readonly HashSet<Type> AssignableToIConvertible = new();
+
+    private static bool ImplementsIConvertible(Type type)
+    {
+        if (AssignableToIConvertible.Contains(type)) return true;
+
+        try
+        {
+            var interfaceType = typeof(IConvertible);
+            if (!interfaceType.IsAssignableFrom(type)) return false;
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+
+        AssignableToIConvertible.Add(type);
+        return true;
     }
 }

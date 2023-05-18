@@ -7,7 +7,7 @@ namespace Server.Modules;
 public class HelpModule : Module
 {
     private readonly CommandService _commandService;
-    
+
     public HelpModule(CommandService commandService) => _commandService = commandService;
 
     [Command("help"), Alias("h"), Summary("Displays all available commands")]

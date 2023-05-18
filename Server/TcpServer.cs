@@ -80,7 +80,7 @@ public class TcpServer
             await _commandHandler.Handle(user, message[1..]);
             return;
         }
-        
+
         await BroadcastMessage(user.Username, message);
     }
 
@@ -88,7 +88,7 @@ public class TcpServer
     {
         using var packetReader = new PacketReader(client.GetStream());
         var username = await packetReader.GetNewUserNameAsync();
-        
+
         ValidateUsername(username, out var validated);
         var uid = Guid.NewGuid().ToString();
 
@@ -96,11 +96,11 @@ public class TcpServer
 
         return new User(client, validated, uid);
     }
-    
+
     private void ValidateUsername(string newUsername, out string validated)
     {
         validated = newUsername;
-        
+
         if (ConnectedUsers.All(user => user.Username != newUsername)) return;
 
         var suffix = 1;

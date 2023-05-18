@@ -18,15 +18,23 @@ public class RespondModule : Module
             await Context.User.Respond(text);
         }
     }
-    
+
     [Command("time"), Alias("t"), Summary("Displays current server time")]
     public async Task TimeCommand() => await Context.Respond(DateTime.Now.ToLongTimeString());
 
-    [Command("wait")]
-    public async Task MsCommand(string delay)
+    [Command("calculate"), Alias("calc", "c"), ExtraArgs(ExtraArgsHandleMode.Throw)]
+    public async Task NumberCommand(double num1, char @operator, double num2)
     {
-        var timeSpan = TimeSpan.Parse(delay);
-        await Task.Delay(timeSpan);
-        await Context.Respond($"Waited for {timeSpan}");
+        var result = @operator switch
+        {
+            '+' => num1 + num2,
+            '-' => num1 - num2,
+            '*' => num1 * num2,
+            '/' => num1 / num2,
+            '^' => Math.Pow(num1, num2),
+            _ => throw new ArgumentOutOfRangeException(nameof(@operator))
+        };
+
+        await Context.Respond(result.ToString(CultureInfo.InvariantCulture));
     }
 }

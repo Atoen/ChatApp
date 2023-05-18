@@ -12,10 +12,10 @@ public class ModuleInfo
     public ModuleInfo(Module instance) => Instance = instance;
 
     internal Module Instance { get; }
-    
+
     private readonly List<Attribute> _attributes = new();
     private readonly List<CommandInfo> _commands = new();
-    
+
     public void AddAttribute(Attribute attribute) => _attributes.Add(attribute);
     public void AddCommands(IEnumerable<CommandInfo> commands) => _commands.AddRange(commands);
 }

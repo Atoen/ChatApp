@@ -7,7 +7,7 @@ public readonly struct CommandContext
         User = user;
         Args = args;
     }
-    
+
     public User User { get; }
     public string[] Args { get; }
 

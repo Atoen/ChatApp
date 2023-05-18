@@ -26,7 +26,7 @@ public class Client
     public async Task<OneOf<Success, Error<string>>> ConnectToServerAsync(string username)
     {
         if (_client.Connected) return new Error<string>("Client already connected.");
-        
+
         if (_shouldOpenNewConnection)
         {
             _client = new TcpClient();
@@ -35,7 +35,7 @@ public class Client
 
         try
         {
-            await _client.ConnectAsync("37.128.72.106", 13000);
+            await _client.ConnectAsync("", 13000);
             _stream = _client.GetStream();
         }
         catch (SocketException e)

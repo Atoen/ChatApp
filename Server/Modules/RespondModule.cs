@@ -11,13 +11,7 @@ public class RespondModule : Module
     public async Task Ping(CommandContext context) => await context.Respond("Pong!");
 
     [Command("me")]
-    public async Task MeCommand(CommandContext context, [Remainder] string text)
-    {
-        if (!string.IsNullOrWhiteSpace(text))
-        {
-            await context.User.Respond(text);
-        }
-    }
+    public async Task MeCommand(CommandContext context, [Remainder] string text = "you") => await context.Respond(text);
 
     [Command("time"), Alias("t"), Summary("Displays current server time")]
     public async Task TimeCommand(CommandContext context) => await context.Respond(DateTime.Now.ToLongTimeString());
@@ -34,7 +28,7 @@ public class RespondModule : Module
             '^' => Math.Pow(num1, num2),
             _ => throw new ArgumentOutOfRangeException(nameof(@operator))
         };
-        
+
         await context.Respond(result.ToString(CultureInfo.InvariantCulture));
     }
 }

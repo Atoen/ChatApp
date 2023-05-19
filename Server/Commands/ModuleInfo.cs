@@ -6,11 +6,11 @@ namespace Server.Commands;
 
 public class ModuleInfo
 {
-    public string Name { get; internal set; } = "";
-    public string Summary { get; internal set; } = "";
+    public string Name { get; private set; } = "";
+    public string Summary { get; private set; } = "";
     public IReadOnlyList<CommandInfo> Commands => _commands;
     public IReadOnlyList<Attribute> Attributes => _attributes;
-    public ModuleInfo? Parent { get; internal set; }
+    public ModuleInfo? Parent { get; private set; }
     public bool IsSubmodule => Parent is not null;
 
     public ModuleInfo(Module instance) => Instance = instance;
@@ -20,14 +20,18 @@ public class ModuleInfo
     private readonly List<Attribute> _attributes = new();
     private readonly List<CommandInfo> _commands = new();
 
-    public void AddAttribute(Attribute attribute) => _attributes.Add(attribute);
-    public void AddCommands(IEnumerable<CommandInfo> commands) => _commands.AddRange(commands);
-    
+    private void AddAttribute(Attribute attribute) => _attributes.Add(attribute);
+    private void AddCommands(IEnumerable<CommandInfo> commands) => _commands.AddRange(commands);
+
     public static ModuleInfo CreateModuleInfo(Module module)
     {
-        var moduleInfo = new ModuleInfo(module);
+        var moduleType = module.GetType();
+        var moduleInfo = new ModuleInfo(module)
+        {
+            Name = moduleType.Name
+        };
 
-        var attributes = module.GetType().GetCustomAttributes();
+        var attributes = moduleType.GetCustomAttributes();
         foreach (var attribute in attributes)
         {
             switch (attribute)
@@ -46,12 +50,7 @@ public class ModuleInfo
             }
         }
 
-        if (moduleInfo.Name == string.Empty)
-        {
-            moduleInfo.Name = module.GetType().Name;
-        }
-
-        var methods = from methodInfo in module.GetType().GetMethods()
+        var methods = from methodInfo in moduleType.GetMethods()
             let commandAttribute = methodInfo.GetCustomAttribute<CommandAttribute>()
             where commandAttribute is not null
             select methodInfo;

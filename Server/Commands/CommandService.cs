@@ -22,13 +22,13 @@ public class CommandService
     public void RegisterCommands(IEnumerable<CommandInfo> commands)
     {
         var start = Stopwatch.GetTimestamp();
-        
+
         AddCommands(commands);
         AddExecutors();
 
         var stop = Stopwatch.GetTimestamp();
         var time = TimeSpan.FromTicks(stop - start);
-        
+
         Log.Debug("Successfully Registered {ExecutorCount} executors in {Time}", _commandExecutors.Count, time);
     }
 
@@ -69,7 +69,7 @@ public class CommandService
 
     public async Task<OneOf<Success, Error<string>, NotFound>> Execute(User user, string command)
     {
-        var args = command.Split(' ');
+        var args = command.Split(' ').Where(x => !string.IsNullOrWhiteSpace(x)).ToArray();
         if (!_commands.TryGetValue(args[0], out var commandInfo))
         {
             return new NotFound();
@@ -113,14 +113,14 @@ public class CommandService
                 var executor = paramCount == 0
                     ? new CommandExecutor0(command)
                     : CreateParamExecutor(paramCount, command, reader);
-                
+
                 dict.Add(command, executor);
             }
             catch (Exception e)
             {
                 Log.Error("Error while creating executor for {Command} command: {Error}",
                     command.Name, e.InnerException?.Message ?? e.Message);
-                
+
                 throw;
             }
         }
@@ -138,7 +138,7 @@ public class CommandService
             _ => throw new ArgumentOutOfRangeException(nameof(parameterCount), parameterCount, null)
         };
 
-        var types = command.Parameters.Take(parameterCount).Select(x => x.Type).ToArray();
+        var types = command.Parameters.Select(x => x.Type).ToArray();
         var genericExecutorType = executorType.MakeGenericType(types);
 
         var executor = (CommandExecutor) Activator.CreateInstance(genericExecutorType, command, reader)!;

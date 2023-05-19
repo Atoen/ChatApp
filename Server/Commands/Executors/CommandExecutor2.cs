@@ -11,12 +11,8 @@ public class CommandExecutor2<T1, T2> : CommandParamExecutor
         _executor = (Executor) Delegate.CreateDelegate(typeof(Executor), command.Module.Instance, command.Method);
     }
 
-    protected override async Task Invoke(CommandContext context, string[] args)
+    protected override async Task Invoke(CommandContext context, object[] args)
     {
-        await _executor.Invoke(context,
-            TypeReader.Read<T1>(args[0]),
-            TypeReader.Read<T2>(UseRemainder
-                ? string.Join(' ', args[1..])
-                : args[1]));
+        await _executor.Invoke(context, (T1) args[0], (T2) args[1]);
     }
 }

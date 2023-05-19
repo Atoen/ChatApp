@@ -2,8 +2,8 @@
 
 var client = new Client();
 
-AppDomain.CurrentDomain.ProcessExit += (_, _) => client.Close();
-Console.CancelKeyPress += (_, _) => client.Close();
+AppDomain.CurrentDomain.ProcessExit += async (_, _) => await client.CloseAsync();
+Console.CancelKeyPress += async (_, _) => await client.CloseAsync();
 
 Console.Write("Enter username: ");
 
@@ -18,7 +18,7 @@ result.Switch(
     {
         Console.WriteLine(error.Value);
         Console.Read();
-        
+
         Environment.Exit(1);
     });
 
@@ -40,9 +40,5 @@ do
     }
 } while (message != "/exit");
 
-client.Close();
-
-
-
-
+await client.CloseAsync();
 

@@ -14,7 +14,21 @@ public class CommandHandler : ICommandHandler
         Prefix = prefix;
         CaseSensitive = caseSensitive;
 
-        _modules = LoadModules();
+        try
+        {
+            _modules = LoadModules();
+        }
+        catch (CommandException e)
+        {
+            Log.Error("Invalid command present: {Error}", e.Message);
+            throw;
+        }
+        catch (Exception e)
+        {
+            Log.Fatal("Error while creating modules: {Error}", e.Message);
+            throw;
+        }
+
         _commandService.RegisterCommands(_modules.SelectMany(x => x.Commands));
     }
 
@@ -43,18 +57,31 @@ public class CommandHandler : ICommandHandler
 
     private IReadOnlyList<ModuleInfo> LoadModules()
     {
+        object? MatchConstructor(Type type)
+        {
+            var constructors = type.GetConstructors();
+            foreach (var x in constructors)
+            {
+                var parameters = x.GetParameters();
+
+                return parameters.Length switch
+                {
+                    0 => Activator.CreateInstance(type),
+                    1 when parameters[0].ParameterType == typeof(CommandService) => Activator.CreateInstance(type,
+                        _commandService),
+                    _ => throw new ModuleException($"No matching constructor for {type} found.")
+                };
+            }
+
+            throw new ModuleException($"No matching constructor for {type} found.");
+        }
+
         var start = Stopwatch.GetTimestamp();
 
         var moduleTypes = typeof(CommandHandler).Assembly.ExportedTypes.Where(type =>
                 typeof(Module).IsAssignableFrom(type) && type is {IsAbstract: false});
 
-        var modules = moduleTypes.Select(type =>
-        {
-            var constructor = type.GetConstructor(new[] {typeof(CommandService)});
-            return constructor is null
-                ? Activator.CreateInstance(type)
-                : Activator.CreateInstance(type, _commandService);
-        }).Cast<Module>().ToImmutableList();
+        var modules = moduleTypes.Select(MatchConstructor).Cast<Module>().ToImmutableList();
 
         var moduleInfos = modules.Select(ModuleInfo.CreateModuleInfo).ToImmutableList();
 

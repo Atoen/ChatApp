@@ -5,11 +5,11 @@ namespace Server.Commands;
 
 public class CommandInfo
 {
-    public ModuleInfo Module { get; internal set; } = null!;
-    public string Name { get; internal set; } = "";
-    public string Summary { get; internal set; } = "";
+    public ModuleInfo Module { get; private init; } = null!;
+    public string Name { get; private set; } = "";
+    public string Summary { get; private set; } = "";
 
-    public ExtraArgsHandleMode ExtraArgsHandleMode { get; internal set; } = ExtraArgsHandleMode.Ignore;
+    public ExtraArgsHandleMode ExtraArgsHandleMode { get; private set; } = ExtraArgsHandleMode.Ignore;
     public IReadOnlyList<string> Aliases => _aliases;
     public IReadOnlyList<ParameterInfo> Parameters => _parameters;
     public IReadOnlyList<Attribute> Attributes => _attributes;
@@ -23,10 +23,10 @@ public class CommandInfo
     private readonly List<Attribute> _attributes = new();
     private readonly List<ParameterInfo> _parameters = new();
 
-    public void WithAlias(params string[] aliases) => _aliases.AddRange(aliases);
-    public void AddAttribute(Attribute attribute) => _attributes.Add(attribute);
-    public void AddParameters(IEnumerable<ParameterInfo> parameters) => _parameters.AddRange(parameters);
-    
+    private void WithAlias(params string[] aliases) => _aliases.AddRange(aliases);
+    private void AddAttribute(Attribute attribute) => _attributes.Add(attribute);
+    private void AddParameters(IEnumerable<ParameterInfo> parameters) => _parameters.AddRange(parameters);
+
     public static CommandInfo CreateCommandInfo(MethodInfo method, ModuleInfo module)
     {
         var commandInfo = new CommandInfo(method)
@@ -65,12 +65,41 @@ public class CommandInfo
             }
         }
 
-        var parameters = method.GetParameters()
-            .Where(x => x.ParameterType != typeof(CommandContext))
-            .Select(x => ParameterInfo.CreateParameterInfo(x, commandInfo));
-        
-        commandInfo.AddParameters(parameters);
+        ValidateCommand(method, commandInfo);
+
+        var parameters = method.GetParameters();
+
+        commandInfo.AddParameters(parameters.Skip(1)
+                .Select(x => ParameterInfo.CreateParameterInfo(x, commandInfo)));
 
         return commandInfo;
     }
+
+    private static void ValidateCommand(MethodInfo method, CommandInfo commandInfo)
+    {
+        if (method.IsStatic)
+        {
+            throw new CommandException($"Command {commandInfo} cannot be static.");
+        }
+
+        var parameters = method.GetParameters();
+        if (parameters.Length == 0)
+        {
+            throw new MissingCommandContextException(
+                $"Command {commandInfo} is missing the required {typeof(CommandContext)} parameter.");
+        }
+
+        if (parameters[0].ParameterType != typeof(CommandContext))
+        {
+            throw new MissingCommandContextException(
+                $"Command {commandInfo} first parameter must be of type {typeof(CommandContext)}.");
+        }
+
+        if (method.ReturnType != typeof(Task))
+        {
+            throw new CommandException($"Command {commandInfo} return type must be {typeof(Task)}");
+        }
+    }
+
+    public override string ToString() => $"{Name} ({Module.Name})";
 }

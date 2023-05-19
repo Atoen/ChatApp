@@ -35,7 +35,7 @@ public class Client
 
         try
         {
-            await _client.ConnectAsync("", 13000);
+            await _client.ConnectAsync("127.0.0.1", 13000);
             _stream = _client.GetStream();
         }
         catch (SocketException e)
@@ -58,12 +58,14 @@ public class Client
         await _packetWriter.SendMessageAsync(message);
     }
 
-    public void Close()
+    public async Task CloseAsync()
     {
         if (_client.Connected)
         {
-            _packetWriter.WriteOpCode(OpCode.Disconnect);
+            await _packetWriter.WriteOpCodeAsync(OpCode.Disconnect);
         }
+
+        await Task.Delay(10);
 
         _client.Close();
         _shouldOpenNewConnection = true;

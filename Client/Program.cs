@@ -14,8 +14,13 @@ Console.WriteLine("Connecting...");
 var result = await client.ConnectToServerAsync(username);
 result.Switch(
     success => Console.Clear(),
-    error => Console.WriteLine(error.Value)
-);
+    error =>
+    {
+        Console.WriteLine(error.Value);
+        Console.Read();
+        
+        Environment.Exit(1);
+    });
 
 client.MessageReceived += delegate(object? _, Message message)
 {
@@ -29,14 +34,14 @@ do
 {
     message = Console.ReadLine() ?? string.Empty;
 
-    Console.CursorTop--;
-    Console.Write($"\r{new string(' ', message.Length)}");
-    Console.CursorLeft = 0;
-
-    if (!string.IsNullOrWhiteSpace(message)) await client.SendMessageAsync(message);
+    if (!string.IsNullOrWhiteSpace(message))
+    {
+        await client.SendMessageAsync(message);
+    }
 } while (message != "/exit");
 
-await Task.Delay(Timeout.Infinite);
+client.Close();
+
 
 
 

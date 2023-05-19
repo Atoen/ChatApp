@@ -1,8 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
-using System.Reflection;
 using Serilog;
-using Server.Attributes;
 
 namespace Server.Commands;
 
@@ -58,7 +56,7 @@ public class CommandHandler : ICommandHandler
                 : Activator.CreateInstance(type, _commandService);
         }).Cast<Module>().ToImmutableList();
 
-        var moduleInfos = modules.Select(CreateModuleInfo).ToImmutableList();
+        var moduleInfos = modules.Select(ModuleInfo.CreateModuleInfo).ToImmutableList();
 
         var end = Stopwatch.GetTimestamp();
         var timeSpan = TimeSpan.FromTicks(end - start);
@@ -66,162 +64,5 @@ public class CommandHandler : ICommandHandler
         Log.Debug("Loaded {ModuleCount} module(s) in {Time}", moduleInfos.Count, timeSpan);
 
         return moduleInfos;
-    }
-
-    private static ModuleInfo CreateModuleInfo(Module module)
-    {
-        var moduleInfo = new ModuleInfo(module);
-
-        var attributes = module.GetType().GetCustomAttributes();
-        foreach (var attribute in attributes)
-        {
-            switch (attribute)
-            {
-                case NameAttribute name:
-                    moduleInfo.Name = name.Text;
-                    break;
-
-                case SummaryAttribute summary:
-                    moduleInfo.Summary = summary.Text;
-                    break;
-
-                default:
-                    moduleInfo.AddAttribute(attribute);
-                    break;
-            }
-        }
-
-        if (moduleInfo.Name == string.Empty)
-        {
-            moduleInfo.Name = module.GetType().Name;
-        }
-
-        var methods = from methodInfo in module.GetType().GetMethods()
-            let commandAttribute = methodInfo.GetCustomAttribute<CommandAttribute>()
-            where commandAttribute is not null
-            select methodInfo;
-
-        var commands = methods.Select(x => CreateCommandInfo(x, moduleInfo));
-        moduleInfo.AddCommands(commands);
-
-        Log.Debug("Loaded {ModuleName} module", moduleInfo.Name);
-
-        return moduleInfo;
-    }
-
-    private static CommandInfo CreateCommandInfo(MethodInfo method, ModuleInfo module)
-    {
-        var commandInfo = new CommandInfo(method)
-        {
-            Module = module
-        };
-
-        var attributes = method.GetCustomAttributes();
-        foreach (var attribute in attributes)
-        {
-            switch (attribute)
-            {
-                case CommandAttribute command:
-                    if (commandInfo.Name == string.Empty) commandInfo.Name = command.Text;
-                    break;
-
-                case NameAttribute name:
-                    commandInfo.Name = name.Text;
-                    break;
-
-                case SummaryAttribute summary:
-                    commandInfo.Summary = summary.Text;
-                    break;
-
-                case AliasAttribute alias:
-                    commandInfo.WithAlias(alias.Aliases);
-                    break;
-
-                case ExtraArgsAttribute extraArgs:
-                    commandInfo.ExtraArgsHandleMode = extraArgs.HandleMode;
-                    break;
-
-                default:
-                    commandInfo.AddAttribute(attribute);
-                    break;
-            }
-        }
-
-        var parameters = method.GetParameters().Select(x => CreateParameterInfo(x, commandInfo));
-        commandInfo.AddParameters(parameters);
-
-        return commandInfo;
-    }
-
-    private static ParameterInfo CreateParameterInfo(System.Reflection.ParameterInfo parameter, CommandInfo command)
-    {
-        var parameterType = parameter.ParameterType;
-        if (parameterType != typeof(string) && !ImplementsIConvertible(parameterType))
-        {
-            throw new ArgumentException("Command parameter type must implement IConvertible interface",
-                nameof(parameter));
-        }
-        
-        var parameterInfo = new ParameterInfo
-        {
-            Type = parameterType,
-            Command = command,
-            IsOptional = parameter.IsOptional,
-            DefaultValue = parameter.DefaultValue
-        };
-
-        var attributes = parameter.GetCustomAttributes().ToImmutableArray();
-        foreach (var attribute in attributes)
-        {
-            switch (attribute)
-            {
-                case NameAttribute name:
-                    parameterInfo.Name = name.Text;
-                    break;
-
-                case AliasAttribute alias:
-                    parameterInfo.WithAlias(alias.Aliases);
-                    break;
-
-                case SummaryAttribute summary:
-                    parameterInfo.Summary = summary.Text;
-                    break;
-
-                case RemainderAttribute:
-                    if (parameterInfo.Type != typeof(string))
-                    {
-                        throw new InvalidAttributeUsageException("RemainderAttribute can only be used on string parameters.");
-                    }
-
-                    parameterInfo.IsRemainder = true;
-                    break;
-
-                default:
-                    parameterInfo.AddAttribute(attribute);
-                    break;
-            }
-        }
-
-        return parameterInfo;
-    }
-
-    private static readonly HashSet<Type> AssignableToIConvertible = new();
-
-    private static bool ImplementsIConvertible(Type type)
-    {
-        if (AssignableToIConvertible.Contains(type)) return true;
-
-        try
-        {
-            var interfaceType = typeof(IConvertible);
-            if (!interfaceType.IsAssignableFrom(type)) return false;
-        }
-        catch (ArgumentException)
-        {
-            return false;
-        }
-
-        AssignableToIConvertible.Add(type);
-        return true;
     }
 }

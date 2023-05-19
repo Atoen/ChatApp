@@ -1,6 +1,6 @@
 ﻿using Server.Attributes;
 
-namespace Server.Commands;
+namespace Server.Commands.Executors;
 
 public abstract class CommandExecutor
 {
@@ -28,18 +28,8 @@ public abstract class CommandExecutor
             throw new InvalidOperationException("Command was invoked with too many parameters.");
         }
 
-        var moduleInstance = _commandInfo.Module.Instance;
-        await moduleInstance.SetContext(context);
-
-        try
-        {
-            await Invoke(context.Args);
-        }
-        finally
-        {
-            moduleInstance.ReleaseContext();
-        }
+        await Invoke(context, context.Args);
     }
 
-    protected abstract Task Invoke(string[] args);
+    protected abstract Task Invoke(CommandContext context, string[] args);
 }

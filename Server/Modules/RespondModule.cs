@@ -8,22 +8,22 @@ namespace Server.Modules;
 public class RespondModule : Module
 {
     [Command("ping"), Alias("p"), Summary("Pongs the ping")]
-    public async Task Ping() => await Context.Respond("Pong!");
+    public async Task Ping(CommandContext context) => await context.Respond("Pong!");
 
     [Command("me")]
-    public async Task MeCommand([Remainder] string text)
+    public async Task MeCommand(CommandContext context, [Remainder] string text)
     {
         if (!string.IsNullOrWhiteSpace(text))
         {
-            await Context.User.Respond(text);
+            await context.User.Respond(text);
         }
     }
 
     [Command("time"), Alias("t"), Summary("Displays current server time")]
-    public async Task TimeCommand() => await Context.Respond(DateTime.Now.ToLongTimeString());
+    public async Task TimeCommand(CommandContext context) => await context.Respond(DateTime.Now.ToLongTimeString());
 
     [Command("calculate"), Alias("calc", "c"), ExtraArgs(ExtraArgsHandleMode.Throw)]
-    public async Task NumberCommand(double num1, char @operator, double num2)
+    public async Task CalculateCommand(CommandContext context, double num1, char @operator, double num2)
     {
         var result = @operator switch
         {
@@ -34,7 +34,7 @@ public class RespondModule : Module
             '^' => Math.Pow(num1, num2),
             _ => throw new ArgumentOutOfRangeException(nameof(@operator))
         };
-
-        await Context.Respond(result.ToString(CultureInfo.InvariantCulture));
+        
+        await context.Respond(result.ToString(CultureInfo.InvariantCulture));
     }
 }

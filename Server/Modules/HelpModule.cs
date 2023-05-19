@@ -11,11 +11,11 @@ public class HelpModule : Module
     public HelpModule(CommandService commandService) => _commandService = commandService;
 
     [Command("help"), Alias("h"), Summary("Displays all available commands")]
-    public async Task HelpCommand()
+    public async Task HelpCommand(CommandContext context)
     {
         foreach (var command in _commandService.Commands)
         {
-            await Context.Respond($"{command.Name} ({string.Join(", ", command.Aliases)}) {command.Summary}");
+            await context.Respond($"{command.Name} ({string.Join(", ", command.Aliases)}) {command.Summary}");
         }
     }
 }

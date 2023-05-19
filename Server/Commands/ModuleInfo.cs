@@ -1,4 +1,8 @@
-﻿namespace Server.Commands;
+﻿using System.Reflection;
+using Serilog;
+using Server.Attributes;
+
+namespace Server.Commands;
 
 public class ModuleInfo
 {
@@ -18,4 +22,45 @@ public class ModuleInfo
 
     public void AddAttribute(Attribute attribute) => _attributes.Add(attribute);
     public void AddCommands(IEnumerable<CommandInfo> commands) => _commands.AddRange(commands);
+    
+    public static ModuleInfo CreateModuleInfo(Module module)
+    {
+        var moduleInfo = new ModuleInfo(module);
+
+        var attributes = module.GetType().GetCustomAttributes();
+        foreach (var attribute in attributes)
+        {
+            switch (attribute)
+            {
+                case NameAttribute name:
+                    moduleInfo.Name = name.Text;
+                    break;
+
+                case SummaryAttribute summary:
+                    moduleInfo.Summary = summary.Text;
+                    break;
+
+                default:
+                    moduleInfo.AddAttribute(attribute);
+                    break;
+            }
+        }
+
+        if (moduleInfo.Name == string.Empty)
+        {
+            moduleInfo.Name = module.GetType().Name;
+        }
+
+        var methods = from methodInfo in module.GetType().GetMethods()
+            let commandAttribute = methodInfo.GetCustomAttribute<CommandAttribute>()
+            where commandAttribute is not null
+            select methodInfo;
+
+        var commands = methods.Select(x => CommandInfo.CreateCommandInfo(x, moduleInfo));
+        moduleInfo.AddCommands(commands);
+
+        Log.Debug("Loaded {ModuleName} module", moduleInfo.Name);
+
+        return moduleInfo;
+    }
 }

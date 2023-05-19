@@ -2,7 +2,7 @@
 
 public class CommandExecutor0 : CommandExecutor
 {
-    private delegate Task Executor();
+    private delegate Task Executor(CommandContext context);
 
     private readonly Executor _executor;
 
@@ -11,5 +11,5 @@ public class CommandExecutor0 : CommandExecutor
         _executor = (Executor) Delegate.CreateDelegate(typeof(Executor), command.Module.Instance, command.Method);
     }
 
-    protected override async Task Invoke(string[] args) => await _executor.Invoke();
+    protected override async Task Invoke(CommandContext context, string[] args) => await _executor.Invoke(context);
 }

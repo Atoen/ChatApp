@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Globalization;
 using OneOf;
 using OneOf.Types;
@@ -17,12 +18,35 @@ public class CommandService
     private readonly HashSet<ModuleInfo> _modules = new();
     private readonly ConcurrentDictionary<string, CommandInfo> _commands = new();
     private readonly ConcurrentDictionary<CommandInfo, CommandExecutor> _commandExecutors = new();
-    private readonly ConcurrentDictionary<Type, Converter<string, object>> _typeReaders = new();
 
     public void RegisterCommands(IEnumerable<CommandInfo> commands)
     {
-        _typeReaders.TryAdd(typeof(int), input => Convert.ChangeType(input, typeof(int)));
+        var start = Stopwatch.GetTimestamp();
+        
+        AddCommands(commands);
+        AddExecutors();
 
+        var stop = Stopwatch.GetTimestamp();
+        var time = TimeSpan.FromTicks(stop - start);
+        
+        Log.Debug("Successfully Registered {ExecutorCount} executors in {Time}", _commandExecutors.Count, time);
+    }
+
+    private void AddExecutors()
+    {
+        var executors = CreateExecutors(_commands.Values.Distinct());
+        foreach (var (key, val) in executors)
+        {
+            Log.Verbose("Registering {CommandName} executor", key.Name);
+            if (!_commandExecutors.TryAdd(key, val))
+            {
+                Log.Warning("Failed to register {CommandName} executor", key.Name);
+            }
+        }
+    }
+
+    private void AddCommands(IEnumerable<CommandInfo> commands)
+    {
         var commandInfos = commands.ToList();
         foreach (var command in commandInfos)
         {
@@ -41,18 +65,6 @@ public class CommandService
                 Log.Warning("Failed to register {CommandName} command", key);
             }
         }
-
-        var executors = CreateExecutors(_commands.Values.Distinct());
-        foreach (var (key, val) in executors)
-        {
-            Log.Verbose("Registering {CommandName} executor", key.Name);
-            if (!_commandExecutors.TryAdd(key, val))
-            {
-                Log.Warning("Failed to register {CommandName} executor", key.Name);
-            }
-        }
-
-        Log.Debug("Successfully Registered {ExecutorCount} executors", _commandExecutors.Count);
     }
 
     public async Task<OneOf<Success, Error<string>, NotFound>> Execute(User user, string command)
@@ -93,11 +105,24 @@ public class CommandService
         var dict = new Dictionary<CommandInfo, CommandExecutor>();
         foreach (var command in commands)
         {
+            Log.Verbose("Creating executor for {Command} command", command.Name);
             var paramCount = command.Parameters.Count;
 
-            dict.Add(command, paramCount == 0
-                ? new CommandExecutor0(command)
-                : CreateParamExecutor(paramCount, command, reader));
+            try
+            {
+                var executor = paramCount == 0
+                    ? new CommandExecutor0(command)
+                    : CreateParamExecutor(paramCount, command, reader);
+                
+                dict.Add(command, executor);
+            }
+            catch (Exception e)
+            {
+                Log.Error("Error while creating executor for {Command} command: {Error}",
+                    command.Name, e.InnerException?.Message ?? e.Message);
+                
+                throw;
+            }
         }
 
         return dict;

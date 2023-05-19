@@ -1,27 +1,22 @@
 ﻿namespace Server.Commands.Executors;
 
-public class CommandExecutor3<T1, T2, T3> : CommandExecutor
+public class CommandExecutor3<T1, T2, T3> : CommandParamExecutor
 {
-    private delegate Task Executor(T1 arg1, T2 arg2, T3 arg3);
+    private delegate Task Executor(CommandContext context, T1 arg1, T2 arg2, T3 arg3);
 
     private readonly Executor _executor;
-    private readonly TypeReader _typeReader;
-    private readonly bool _useRemainder;
 
-    public CommandExecutor3(CommandInfo command, TypeReader typeReader) : base(command)
+    public CommandExecutor3(CommandInfo command, TypeReader typeReader) : base(command, typeReader)
     {
-        _typeReader = typeReader;
-        _useRemainder = command.Parameters[2].IsRemainder;
-
         _executor = (Executor) Delegate.CreateDelegate(typeof(Executor), command.Module.Instance, command.Method);
     }
 
-    protected override async Task Invoke(string[] args)
+    protected override async Task Invoke(CommandContext context, string[] args)
     {
-        await _executor.Invoke(
-            _typeReader.Read<T1>(args[0]),
-            _typeReader.Read<T2>(args[1]),
-            _typeReader.Read<T3>(_useRemainder
+        await _executor.Invoke(context,
+            TypeReader.Read<T1>(args[0]),
+            TypeReader.Read<T2>(args[1]),
+            TypeReader.Read<T3>(UseRemainder
                 ? string.Join(' ', args[2..])
                 : args[2]));
     }

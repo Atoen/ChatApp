@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
+using Microsoft.Extensions.Logging;
 using OneOf;
 using OneOf.Types;
 using Serilog;
@@ -10,6 +11,13 @@ namespace Server.Commands;
 
 public class CommandService
 {
+    private readonly ILogger<CommandService> _logger;
+
+    public CommandService(ILogger<CommandService> logger)
+    {
+        _logger = logger;
+    }
+
     public bool CaseSensitive { get; set; }
 
     public IEnumerable<ModuleInfo> Modules => _modules.Select(x => x);
@@ -29,7 +37,7 @@ public class CommandService
         var stop = Stopwatch.GetTimestamp();
         var time = TimeSpan.FromTicks(stop - start);
 
-        Log.Debug("Successfully Registered {ExecutorCount} executors in {Time}", _commandExecutors.Count, time);
+        _logger.LogDebug("Successfully Registered {ExecutorCount} executors in {Time}", _commandExecutors.Count, time);
     }
 
     private void AddExecutors()
@@ -37,10 +45,10 @@ public class CommandService
         var executors = CreateExecutors(_commands.Values.Distinct());
         foreach (var (key, val) in executors)
         {
-            Log.Verbose("Registering {CommandName} executor", key.Name);
+            _logger.LogTrace("Registering {CommandName} executor", key.Name);
             if (!_commandExecutors.TryAdd(key, val))
             {
-                Log.Warning("Failed to register {CommandName} executor", key.Name);
+                _logger.LogWarning("Failed to register {CommandName} executor", key.Name);
             }
         }
     }
@@ -59,10 +67,10 @@ public class CommandService
 
         foreach (var (key, val) in dict)
         {
-            Log.Verbose("Registering {CommandName} command", key);
+            _logger.LogTrace("Registering {CommandName} command", key);
             if (!_commands.TryAdd(key, val))
             {
-                Log.Warning("Failed to register {CommandName} command", key);
+                _logger.LogWarning("Failed to register {CommandName} command", key);
             }
         }
     }
@@ -77,13 +85,13 @@ public class CommandService
 
         if (!_commandExecutors.TryGetValue(commandInfo, out var executor))
         {
-            Log.Warning("Unable to execute {Command}: executor not registered", args[0]);
+            _logger.LogWarning("Unable to execute {Command}: executor not registered", args[0]);
             return new Error<string>($"Unable to execute command '{args[0]}'.");
         }
 
         var context = new CommandContext(user, args[1..]);
 
-        Log.Debug("Executing {CommandName} for {Username}", command, user.Username);
+        _logger.LogDebug("Executing {CommandName} for {Username}", command, user.Username);
 
         try
         {
@@ -91,21 +99,21 @@ public class CommandService
         }
         catch (Exception e)
         {
-            Log.Information("Error when executing {CommandName}: {Error}", args[0], e.Message);
+            _logger.LogInformation("Error when executing {CommandName}: {Error}", args[0], e.Message);
             return new Error<string>(e.Message);
         }
 
         return new Success();
     }
 
-    private static Dictionary<CommandInfo, CommandExecutor> CreateExecutors(IEnumerable<CommandInfo> commands)
+    private Dictionary<CommandInfo, CommandExecutor> CreateExecutors(IEnumerable<CommandInfo> commands)
     {
         var reader = new TypeReader(CultureInfo.InvariantCulture);
 
         var dict = new Dictionary<CommandInfo, CommandExecutor>();
         foreach (var command in commands)
         {
-            Log.Verbose("Creating executor for {Command} command", command.Name);
+            _logger.LogTrace("Creating executor for {Command} command", command.Name);
             var paramCount = command.Parameters.Count;
 
             try
@@ -118,7 +126,7 @@ public class CommandService
             }
             catch (Exception e)
             {
-                Log.Error("Error while creating executor for {Command} command: {Error}",
+                _logger.LogError("Error while creating executor for {Command} command: {Error}",
                     command.Name, e.InnerException?.Message ?? e.Message);
 
                 throw;

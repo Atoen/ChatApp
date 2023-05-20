@@ -36,7 +36,7 @@ public class ParameterInfo
             throw new ArgumentException("Command parameter type must be string or implement IConvertible interface",
                 parameter.Name);
         }
-        
+
         var parameterInfo = new ParameterInfo
         {
             Type = parameterType,

@@ -1,5 +1,6 @@
 ﻿using System.Reflection;
 using Server.Attributes;
+using Server.Exceptions;
 
 namespace Server.Commands;
 

@@ -1,4 +1,4 @@
-﻿namespace Server.Commands;
+﻿namespace Server;
 
 public static class TypeExtensions
 {
@@ -7,7 +7,7 @@ public static class TypeExtensions
     public static bool ImplementsIConvertible(this Type type)
     {
         if (AssignableToIConvertible.Contains(type)) return true;
-        
+
         if (!typeof(IConvertible).IsAssignableFrom(type)) return false;
 
         AssignableToIConvertible.Add(type);

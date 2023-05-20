@@ -1,43 +1,53 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
-using Serilog;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Server.Exceptions;
 
 namespace Server.Commands;
 
 public class CommandHandler : ICommandHandler
 {
-    public CommandHandler(TcpServer server, char prefix, bool caseSensitive = false)
+    private readonly CommandService _commandService;
+    private readonly IServiceProvider _provider;
+    private readonly ILogger<CommandHandler> _logger;
+
+    public CommandHandler(CommandService commandService, ILogger<CommandHandler> logger, IServiceProvider provider)
     {
-        _server = server;
-        _commandService = new CommandService();
+        _commandService = commandService;
+        _provider = provider;
+        _logger = logger;
 
-        Prefix = prefix;
-        CaseSensitive = caseSensitive;
+        Prefix = '/';
+        CaseSensitive = false;
 
+        _modules = LoadModules();
+
+        _commandService.RegisterCommands(_modules.SelectMany(x => x.Commands));
+    }
+
+    private IReadOnlyList<ModuleInfo> LoadModules()
+    {
         try
         {
-            _modules = LoadModules();
+            return BuildModules(_provider);
         }
         catch (CommandException e)
         {
-            Log.Error("Invalid command present: {Error}", e.Message);
+            _logger.LogError("Invalid command present: {Error}", e.Message);
             throw;
         }
         catch (Exception e)
         {
-            Log.Fatal("Error while creating modules: {Error}", e.Message);
+            _logger.LogCritical("Error while creating modules: {Error}", e.Message);
             throw;
         }
-
-        _commandService.RegisterCommands(_modules.SelectMany(x => x.Commands));
     }
 
     public char Prefix { get; set; }
     public bool CaseSensitive { get; set; }
 
-    private readonly TcpServer _server;
     private readonly IReadOnlyList<ModuleInfo> _modules;
-    private readonly CommandService _commandService;
 
     public async Task Handle(User sender, string command)
     {
@@ -51,44 +61,26 @@ public class CommandHandler : ICommandHandler
 
         if (response != string.Empty)
         {
-            await _server.Respond(sender, response);
+            await sender.Respond(response);
         }
     }
 
-    private IReadOnlyList<ModuleInfo> LoadModules()
+    private IReadOnlyList<ModuleInfo> BuildModules(IServiceProvider provider)
     {
-        object? MatchConstructor(Type type)
-        {
-            var constructors = type.GetConstructors();
-            foreach (var x in constructors)
-            {
-                var parameters = x.GetParameters();
-
-                return parameters.Length switch
-                {
-                    0 => Activator.CreateInstance(type),
-                    1 when parameters[0].ParameterType == typeof(CommandService) => Activator.CreateInstance(type,
-                        _commandService),
-                    _ => throw new ModuleException($"No matching constructor for {type} found.")
-                };
-            }
-
-            throw new ModuleException($"No matching constructor for {type} found.");
-        }
-
         var start = Stopwatch.GetTimestamp();
 
         var moduleTypes = typeof(CommandHandler).Assembly.ExportedTypes.Where(type =>
-                typeof(Module).IsAssignableFrom(type) && type is {IsAbstract: false});
+                typeof(Module).IsAssignableFrom(type) && !type.IsAbstract);
 
-        var modules = moduleTypes.Select(MatchConstructor).Cast<Module>().ToImmutableList();
+        var modules = moduleTypes.Select(x => ActivatorUtilities.CreateInstance(provider, x))
+            .Cast<Module>().ToImmutableList();
 
         var moduleInfos = modules.Select(ModuleInfo.CreateModuleInfo).ToImmutableList();
 
         var end = Stopwatch.GetTimestamp();
         var timeSpan = TimeSpan.FromTicks(end - start);
 
-        Log.Debug("Loaded {ModuleCount} module(s) in {Time}", moduleInfos.Count, timeSpan);
+        _logger.LogDebug("Loaded {ModuleCount} module(s) in {Time}", moduleInfos.Count, timeSpan);
 
         return moduleInfos;
     }

@@ -8,16 +8,10 @@ namespace Server;
 
 public class TcpServer
 {
-    public TcpServer(IPEndPoint endPoint)
+    public TcpServer(IPEndPoint endPoint, ICommandHandler commandHandler)
     {
         _listener = new TcpListener(endPoint);
-        _commandHandler = new CommandHandler(this, '/');
-    }
-
-    public TcpServer(IPAddress address, int port)
-    {
-        _listener = new TcpListener(address, port);
-        _commandHandler = new CommandHandler(this, '/');
+        _commandHandler = commandHandler;
     }
 
     private readonly ICommandHandler _commandHandler;

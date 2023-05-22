@@ -16,7 +16,7 @@ public abstract class CommandParamExecutor : CommandExecutor
     public override async Task Execute(CommandContext context)
     {
         ValidateArgCount(context);
-
+        
         await Invoke(context, ParseArgs(context.Args));
     }
 

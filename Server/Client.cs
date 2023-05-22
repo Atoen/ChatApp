@@ -2,36 +2,30 @@
 using System.Net.Sockets;
 using OneOf;
 using OneOf.Types;
-using Server.Packets;
+using Server.Messages;
+using Server.Net;
+using Server.Users;
 
 namespace Server;
 
 public class Client
 {
-    public Client()
-    {
-        _client = new TcpClient();
-    }
+    public Client() => _client = new TcpClient();
 
     public bool Connected => _client.Connected;
+    public User User { get; private set; } = default!;
     public event EventHandler<Message>? MessageReceived;
+    public event EventHandler<string>? NotificationReceived;
 
-    private TcpClient _client;
-    private PacketReader _packetReader = default!;
-    private PacketWriter _packetWriter = default!;
+    private readonly TcpClient _client;
     private NetworkStream _stream = default!;
 
-    private bool _shouldOpenNewConnection;
+    private NetworkReader _reader = default!;
+    private NetworkWriter _networkWriter = default!;
 
-    public async Task<OneOf<Success, Error<string>>> ConnectToServerAsync(string username)
+    public async Task<OneOf<Success, Success<string>, Error<string>>> ConnectToServerAsync(string username)
     {
         if (_client.Connected) return new Error<string>("Client already connected.");
-
-        if (_shouldOpenNewConnection)
-        {
-            _client = new TcpClient();
-            _shouldOpenNewConnection = false;
-        }
 
         try
         {
@@ -43,42 +37,48 @@ public class Client
             return new Error<string>(e.Message);
         }
 
-        _packetReader = new PacketReader(_stream);
-        _packetWriter = new PacketWriter(_stream);
+        _networkWriter = new NetworkWriter(_stream);
+        _reader = new NetworkReader(_stream);
 
-        await _packetWriter.SendNewUserNameAsync(username);
+        var packet = new Packet(OpCode.Connect, username);
+        await _networkWriter.WritePacketAsync(packet);
 
-        return new Success();
+        var response = await _reader.ReadPacketAsync();
+        if (response.OpCode != OpCode.Connect) return new Error<string>("Server didn't complete the handshake.");
+
+        User = new User(response[0], Guid.Parse(response[1]));
+
+        return username == User.Username
+            ? new Success()
+            : new Success<string>(User.Username);
     }
 
     public void Listen() => Task.Run(ProcessIncomingPackets);
 
     public async Task SendMessageAsync(string message)
     {
-        await _packetWriter.SendMessageAsync(message);
+        await _networkWriter.WritePacketAsync(new Packet(OpCode.SendMessage));
+        await _networkWriter.WriteMessageAsync(new Message(User, message));
     }
 
     public async Task CloseAsync()
     {
         if (_client.Connected)
         {
-            await _packetWriter.WriteOpCodeAsync(OpCode.Disconnect);
+            await _networkWriter.WritePacketAsync(new Packet(OpCode.Disconnect));
         }
 
-        await Task.Delay(10);
-
-        _client.Close();
-        _shouldOpenNewConnection = true;
+        await _client.Client.DisconnectAsync(true);
     }
 
     private async Task ProcessIncomingPackets()
     {
         while (_client.Connected)
         {
-            OpCode opCode;
+            Packet packet;
             try
             {
-                opCode = await _packetReader.ReadOpCodeAsync();
+                packet = await _reader.ReadPacketAsync();
             }
             catch (IOException e) // Client was closed while awaiting the read
             {
@@ -86,34 +86,31 @@ public class Client
                 return;
             }
 
-            switch (opCode)
+            switch (packet.OpCode)
             {
-                case OpCode.Connect:
-                    break;
-
-                case OpCode.Disconnect:
-                    break;
-
                 case OpCode.SendMessage:
+                case OpCode.ReceiveMessage:
+
+                    var message = await _reader.ReadMessageAsync();
+                    if (message.Author != User)
+                    {
+                        MessageReceived?.Invoke(this,  message);
+                    }
                     break;
 
                 case OpCode.BroadcastConnected:
-                     var (user, _) = await _packetReader.ReceiveBroadcastConnectedAsync();
-                     MessageReceived?.Invoke(this, new Message($"{user} has connected to the server."));
-                     break;
+                    if (packet[1] != User.UidString)
+                    {
+                        NotificationReceived?.Invoke(this, $"{packet[0]} has connected to the server.");
+                    }
+                    break;
 
                 case OpCode.BroadcastDisconnected:
-                    var (usr, _) = await _packetReader.ReceiveBroadcastDisconnectedAsync();
-                    MessageReceived?.Invoke(this, new Message($"{usr} has disconnected from the server."));
+                    if (packet[1] != User.UidString)
+                    {
+                        NotificationReceived?.Invoke(this, $"{packet[0]} has disconnected from the server.");
+                    }
                     break;
-
-                case OpCode.ReceiveMessage:
-                    var (username, message) = await _packetReader.GetMessageAsync();
-                    MessageReceived?.Invoke(this, new UserMessage(username, message));
-                    break;
-
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(opCode), opCode, null);
             }
         }
     }

@@ -1,4 +1,6 @@
-﻿namespace Server.Commands;
+﻿using Server.Users;
+
+namespace Server.Commands;
 
 public interface ICommandHandler
 {
@@ -6,5 +8,5 @@ public interface ICommandHandler
 
     public bool CaseSensitive { get; set; }
 
-    Task Handle(User sender, string command);
+    Task Handle(TcpUser user, string command);
 }

@@ -1,4 +1,4 @@
-﻿namespace Server.Packets;
+﻿namespace Server.Net;
 
 public enum OpCode : byte
 {

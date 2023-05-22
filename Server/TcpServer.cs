@@ -2,7 +2,9 @@
 using System.Net.Sockets;
 using Serilog;
 using Server.Commands;
-using Server.Packets;
+using Server.Messages;
+using Server.Net;
+using Server.Users;
 
 namespace Server;
 
@@ -17,7 +19,9 @@ public class TcpServer
     private readonly ICommandHandler _commandHandler;
 
     private readonly TcpListener _listener;
-    internal List<User> ConnectedUsers { get; } = new();
+    private readonly List<TcpUser> _connectedUsers = new();
+
+    private readonly TimeSpan _connectionTimeout = TimeSpan.FromSeconds(10);
 
     public async Task Start()
     {
@@ -29,123 +33,128 @@ public class TcpServer
         {
             var client = await _listener.AcceptTcpClientAsync();
             Log.Debug("Accepted connection from {Remote}", client.Client.RemoteEndPoint?.ToString());
+            try
+            {
+                var user = await ConnectUser(client);
+                user.StartListening();
+                user.TransmissionReceived += ConnectionOnTransmissionReceived;
+                _connectedUsers.Add(user);
 
-            var user = await ConnectUser(client);
-            user.TransmissionReceived += ConnectionOnTransmissionReceived;
-            user.StartListening();
-
-            ConnectedUsers.Add(user);
-            await BroadcastConnectedUser(user);
+                await BroadcastConnectedUser(user);
+            }
+            catch (Exception e)
+            {
+                client.Close();
+                Log.Error("Error while accepting new user: {Error}", e.Message);
+            }
         }
     }
 
-    private async Task ConnectionOnTransmissionReceived(User user, OpCode opCode)
+    private async Task ConnectionOnTransmissionReceived(TcpUser tcpUser, Packet packet)
     {
-        switch (opCode)
+        switch (packet.OpCode)
         {
-            case OpCode.Connect:
-                break;
-
             case OpCode.Disconnect:
-                await UserDisconnected(user);
+                await UserDisconnected(tcpUser);
                 break;
 
             case OpCode.SendMessage:
-                await MessageReceived(user);
+                await MessageReceived(tcpUser);
                 break;
-
-            case OpCode.BroadcastConnected:
-            case OpCode.ReceiveMessage:
-            case OpCode.BroadcastDisconnected:
-                break;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(opCode), opCode, null);
         }
     }
 
-    private async Task MessageReceived(User user)
+    private async Task MessageReceived(TcpUser tcpUser)
     {
-        var message = await user.Reader.ReadMessageAsync();
-        Log.Information("<{Username}> \"{UserMessage}\"", user.Username, message);
+        var message = await tcpUser.ReadMessageAsync();
+        var content = message.Content;
 
-        if (message.StartsWith(_commandHandler.Prefix))
+        Log.Information("<{Username}> \"{UserMessage}\"", tcpUser.Username, content);
+
+        if (message.Content.StartsWith(_commandHandler.Prefix))
         {
-            await _commandHandler.Handle(user, message[1..]);
+            await _commandHandler.Handle(tcpUser, content[1..]);
             return;
         }
 
-        await BroadcastMessage(user.Username, message);
+        await BroadcastMessage(message);
     }
 
-    private async Task<User> ConnectUser(TcpClient client)
+    private async Task<TcpUser> ConnectUser(TcpClient client)
     {
-        using var packetReader = new PacketReader(client.GetStream());
-        var username = await packetReader.GetNewUserNameAsync();
+        using var reader = new NetworkReader(client.GetStream());
+        var packet = await reader.ReadPacketAsync();
+
+        if (packet.OpCode != OpCode.Connect)
+        {
+            throw new InvalidOperationException("Connected client didn't complete the handshake.");
+        }
+
+        var username = packet[0];
 
         ValidateUsername(username, out var validated);
-        var uid = Guid.NewGuid().ToString();
+        var uid = Guid.NewGuid();
+
+        await using var writer = new NetworkWriter(client.GetStream());
+        var response = new Packet(OpCode.Connect, validated, uid.ToString());
+        await writer.WritePacketAsync(response);
 
         Log.Information("User {Username} has connected", validated);
 
-        return new User(client, validated, uid);
+        return new TcpUser(client, validated, uid);
     }
 
     private void ValidateUsername(string newUsername, out string validated)
     {
         validated = newUsername;
 
-        if (ConnectedUsers.All(user => user.Username != newUsername)) return;
+        if (_connectedUsers.All(user => user.Username != newUsername)) return;
 
         var suffix = 1;
         do
         {
             newUsername = $"{newUsername}_{suffix++}";
-        } while (ConnectedUsers.Any(user => user.Username == newUsername));
+        } while (_connectedUsers.Any(user => user.Username == newUsername));
 
         validated = newUsername;
     }
 
-    private async Task UserDisconnected(User user)
+    private async Task UserDisconnected(TcpUser user)
     {
         Log.Information("User {Username} has disconnected", user.Username);
 
-        ConnectedUsers.Remove(user);
+        _connectedUsers.Remove(user);
+
         await BroadcastDisconnectedUser(user);
 
         user.Dispose();
     }
 
-    internal async Task BroadcastMessage(string sender, string message)
+    private async Task BroadcastMessage(Message message)
     {
-        foreach (var user in ConnectedUsers)
+        foreach (var user in _connectedUsers)
         {
-            await user.Writer.WriteOpCodeAsync(OpCode.ReceiveMessage);
-            await user.Writer.WriteMessageContentAsync(sender);
-            await user.Writer.WriteMessageContentAsync(message);
+            await user.WriteMessageAsync(message);
         }
     }
 
-    private async Task BroadcastConnectedUser(User connected)
+    private async Task BroadcastConnectedUser(User connectedUser)
     {
-        foreach (var user in ConnectedUsers)
+        var packet = new Packet(OpCode.BroadcastConnected, connectedUser.Username, connectedUser.UidString);
+
+        foreach (var user in _connectedUsers)
         {
-            await user.Writer.BroadcastConnectedAsync(connected);
+            await user.WritePacketAsync(packet);
         }
     }
 
-    private async Task BroadcastDisconnectedUser(User disconnected)
+    private async Task BroadcastDisconnectedUser(User disconnectedUser)
     {
-        foreach (var user in ConnectedUsers)
-        {
-            await user.Writer.BroadcastDisconnectedAsync(disconnected);
-        }
-    }
+        var packet = new Packet(OpCode.BroadcastDisconnected, disconnectedUser.Username, disconnectedUser.UidString);
 
-    internal async Task Respond(User user, string response)
-    {
-        await user.Writer.WriteOpCodeAsync(OpCode.ReceiveMessage);
-        await user.Writer.WriteMessageContentAsync(SystemMessage.SystemMessageSender);
-        await user.Writer.WriteMessageContentAsync(response);
+        foreach (var user in _connectedUsers)
+        {
+            await user.WritePacketAsync(packet);
+        }
     }
 }

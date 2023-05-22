@@ -15,8 +15,12 @@ Log.Logger = new LoggerConfiguration().
 var services = new ServiceCollection();
 services.AddSingleton<ICommandHandler, CommandHandler>();
 services.AddSingleton<CommandService>();
-services.AddSingleton<HttpClient>();
+// services.AddSingleton<HttpClient>();
 services.AddLogging(x => x.AddSerilog(Log.Logger));
+
+var httpClient = new HttpClient();
+httpClient.DefaultRequestHeaders.Add("User-Agent", "MyApp/1.0");
+services.AddSingleton(httpClient);
 
 var provider = services.BuildServiceProvider();
 

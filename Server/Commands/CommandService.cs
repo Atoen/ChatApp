@@ -4,8 +4,8 @@ using System.Globalization;
 using Microsoft.Extensions.Logging;
 using OneOf;
 using OneOf.Types;
-using Serilog;
 using Server.Commands.Executors;
+using Server.Users;
 
 namespace Server.Commands;
 
@@ -75,7 +75,7 @@ public class CommandService
         }
     }
 
-    public async Task<OneOf<Success, Error<string>, NotFound>> Execute(User user, string command)
+    public async Task<OneOf<Success, Error<string>, NotFound>> Execute(TcpUser tcpUser, string command)
     {
         var args = command.Split(' ').Where(x => !string.IsNullOrWhiteSpace(x)).ToArray();
         if (!_commands.TryGetValue(args[0], out var commandInfo))
@@ -89,9 +89,9 @@ public class CommandService
             return new Error<string>($"Unable to execute command '{args[0]}'.");
         }
 
-        var context = new CommandContext(user, args[1..]);
+        var context = new CommandContext(tcpUser, args[1..]);
 
-        _logger.LogDebug("Executing {CommandName} for {Username}", command, user.Username);
+        _logger.LogDebug("Executing {CommandName} for {Username}", command, tcpUser.Username);
 
         try
         {

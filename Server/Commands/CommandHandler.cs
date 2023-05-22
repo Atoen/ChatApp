@@ -3,6 +3,8 @@ using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Server.Exceptions;
+using Server.Messages;
+using Server.Users;
 
 namespace Server.Commands;
 
@@ -25,6 +27,8 @@ public class CommandHandler : ICommandHandler
 
         _commandService.RegisterCommands(_modules.SelectMany(x => x.Commands));
     }
+
+    public static readonly User CommandResponder = new("Server", Guid.Empty);
 
     private IReadOnlyList<ModuleInfo> LoadModules()
     {
@@ -49,11 +53,11 @@ public class CommandHandler : ICommandHandler
 
     private readonly IReadOnlyList<ModuleInfo> _modules;
 
-    public async Task Handle(User sender, string command)
+    public async Task Handle(TcpUser user, string command)
     {
         if (command.Length == 0) return;
 
-        var result = await _commandService.Execute(sender, command);
+        var result = await _commandService.Execute(user, command);
         var response = result.Match(
             success => string.Empty,
             error => error.Value,
@@ -61,7 +65,7 @@ public class CommandHandler : ICommandHandler
 
         if (response != string.Empty)
         {
-            await sender.Respond(response);
+            await user.WriteMessageAsync(Message.ServerNotification(response));
         }
     }
 

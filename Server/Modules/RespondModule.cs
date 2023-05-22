@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using Server.Attributes;
 using Server.Commands;
+using Server.Messages;
 
 namespace Server.Modules;
 
@@ -8,13 +9,16 @@ namespace Server.Modules;
 public class RespondModule : Module
 {
     [Command("ping"), Alias("p"), Summary("Pongs the ping")]
-    public async Task Ping(CommandContext context) => await context.Respond("Pong!");
+    public async Task Ping(CommandContext context) => await context.RespondAsync("Pong!");
 
     [Command("me")]
-    public async Task MeCommand(CommandContext context, [Remainder] string text = "you") => await context.Respond(text);
+    public async Task MeCommand(CommandContext context, [Remainder] string text = "you")
+    {
+        await context.RespondAsync(text, true);
+    }
 
     [Command("time"), Alias("t"), Summary("Displays current server time")]
-    public async Task TimeCommand(CommandContext context) => await context.Respond(DateTime.Now.ToLongTimeString());
+    public async Task TimeCommand(CommandContext context) => await context.RespondAsync(DateTime.Now.ToLongTimeString());
 
     [Command("calculate"), Alias("calc", "c"), ExtraArgs(ExtraArgsHandleMode.Throw)]
     public async Task CalculateCommand(CommandContext context, double num1, char @operator, double num2)
@@ -29,6 +33,6 @@ public class RespondModule : Module
             _ => throw new ArgumentOutOfRangeException(nameof(@operator))
         };
 
-        await context.Respond(result.ToString(CultureInfo.InvariantCulture));
+        await context.RespondAsync(result.ToString(CultureInfo.InvariantCulture));
     }
 }

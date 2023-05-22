@@ -1,4 +1,5 @@
-﻿using Server.Attributes;
+﻿using System.Text;
+using Server.Attributes;
 using Server.Commands;
 
 namespace Server.Modules;
@@ -13,9 +14,25 @@ public class HelpModule : Module
     [Command("help"), Alias("h"), Summary("Displays all available commands")]
     public async Task HelpCommand(CommandContext context)
     {
+        var builder = new StringBuilder();
+
         foreach (var command in _commandService.Commands)
         {
-            await context.Respond($"{command.Name} ({string.Join(", ", command.Aliases)}) {command.Summary}");
+            builder.Append(command.Name);
+
+            if (command.Aliases.Count > 0)
+            {
+                builder.Append($" ({string.Join(", ", command.Aliases)})");
+            }
+
+            if (command.Summary != string.Empty)
+            {
+                builder.Append($" - {command.Summary}");
+            }
+
+            builder.Append('\n');
         }
+
+        await context.NotifyAsync(builder.ToString());
     }
 }

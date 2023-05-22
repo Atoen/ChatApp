@@ -1,15 +1,26 @@
-﻿namespace Server.Commands;
+﻿using Server.Messages;
+using Server.Users;
+
+namespace Server.Commands;
 
 public readonly struct CommandContext
 {
-    public CommandContext(User user, params string[] args)
+    public CommandContext(TcpUser user, params string[] args)
     {
         User = user;
         Args = args;
     }
 
-    public User User { get; }
+    public TcpUser User { get; }
     public string[] Args { get; }
 
-    public async Task Respond(string message) => await User.Respond(message);
+    public async Task RespondAsync(string message, bool broadcast = false)
+    {
+        await User.WriteMessageAsync(Message.ServerResponse(message));
+    }
+
+    public async Task NotifyAsync(string notification)
+    {
+        await User.WriteMessageAsync(Message.ServerNotification(notification));
+    }
 }

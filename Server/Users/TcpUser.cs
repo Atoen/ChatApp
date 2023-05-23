@@ -1,4 +1,5 @@
 ﻿using System.Net.Sockets;
+using Serilog;
 using Server.Messages;
 using Server.Net;
 
@@ -6,45 +7,57 @@ namespace Server.Users;
 
 public sealed class TcpUser : User, IDisposable
 {
-    public TcpUser(TcpClient client, string username, Guid uid) : base(username, uid)
+    public ITcpServer Server { get; }
+
+    public TcpUser(ITcpServer server, TcpClient client, Func<Packet, TcpUser, Task> callback, string username, Guid uid) : base(username, uid)
     {
+        Server = server;
         _client = client;
+        _callback = callback;
 
         var stream = client.GetStream();
 
         _reader = new NetworkReader(stream);
         _writer = new NetworkWriter(stream);
     }
-
-    public delegate Task TransmissionReceivedEventHandler(TcpUser tcpUser, Packet packet);
-    public TransmissionReceivedEventHandler? TransmissionReceived;
-
+    
+    private readonly Func<Packet, TcpUser, Task> _callback;
     private readonly TcpClient _client;
-
     private readonly NetworkReader _reader;
     private readonly NetworkWriter _writer;
-
-    public void StartListening() => Task.Run(Listen);
-
-    private async Task Listen()
+    
+    public async Task Listen()
     {
         while (_client.Connected)
         {
-            var packet = await _reader.ReadPacketAsync();
-            await TransmissionReceived?.Invoke(this, packet)!;
+            await ProcessPacket().ConfigureAwait(false);
         }
     }
 
-    public async Task<Message> ReadMessageAsync() => await _reader.ReadMessageAsync();
+    private async Task ProcessPacket()
+    {
+        try
+        {
+            var packet = await _reader.ReadPacketAsync().ConfigureAwait(false);
+            await _callback.Invoke(packet, this).ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            Log.Error("Error while processing user packet: {Error}", e.Message);
+            await WritePacketAsync(new Packet(OpCode.Error, e.Message)).ConfigureAwait(false);
+        }
+    }
 
-    public async Task WritePacketAsync(Packet packet) => await _writer.WritePacketAsync(packet);
+    public async Task<Message> ReadMessageAsync() => await _reader.ReadMessageAsync().ConfigureAwait(false);
+
+    public async Task WritePacketAsync(Packet packet) => await _writer.WritePacketAsync(packet).ConfigureAwait(false);
 
     public async Task WriteMessageAsync(Message message)
     {
         var header = new Packet(OpCode.SendMessage);
 
-        await _writer.WritePacketAsync(header);
-        await _writer.WriteMessageAsync(message);
+        await _writer.WritePacketAsync(header).ConfigureAwait(false);
+        await _writer.WriteMessageAsync(message).ConfigureAwait(false);
     }
 
     public void Dispose()

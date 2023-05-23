@@ -23,23 +23,70 @@ public class CommandService
     public IEnumerable<ModuleInfo> Modules => _modules.Select(x => x);
     public IEnumerable<CommandInfo> Commands => _modules.SelectMany(x => x.Commands);
 
-    private readonly HashSet<ModuleInfo> _modules = new();
     private readonly ConcurrentDictionary<string, CommandInfo> _commands = new();
     private readonly ConcurrentDictionary<CommandInfo, CommandExecutor> _commandExecutors = new();
+
+    private readonly HashSet<ModuleInfo> _modules = new();
+    private readonly HashSet<string> _registeredCommands = new();
+    private readonly Dictionary<string, List<CommandInfo>> _registeredCommandsOverloads = new();
+    private readonly ConcurrentDictionary<CommandInfo, CommandExecutor> _registeredExecutors = new();
 
     public void RegisterCommands(IEnumerable<CommandInfo> commands)
     {
         var start = Stopwatch.GetTimestamp();
 
-        AddCommands(commands);
-        AddExecutors();
+        var typeReader = new TypeReader(CultureInfo.InvariantCulture);
+        
+        foreach (var command in commands)
+        {
+            _modules.Add(command.Module);
+            foreach (var name in command.InvokeNames)
+            {
+                if (_registeredCommandsOverloads.TryGetValue(name, out var overloads))
+                {
+                    overloads.Add(command);
+                }
+                else
+                {
+                    _registeredCommandsOverloads.TryAdd(name, new List<CommandInfo> {command});
+                }
+            }
+
+            _registeredExecutors.TryAdd(command, CreateExecutor(command, typeReader));
+        }
+        
+        // AddCommands(commands);
+        // AddExecutors();
 
         var stop = Stopwatch.GetTimestamp();
         var time = TimeSpan.FromTicks(stop - start);
 
-        _logger.LogDebug("Successfully Registered {ExecutorCount} executors in {Time}", _commandExecutors.Count, time);
+        _logger.LogDebug("Successfully Registered {ExecutorCount} executors in {Time}", _registeredExecutors.Count, time);
     }
 
+    private void AddCommands(IEnumerable<CommandInfo> commands)
+    {
+        var commandInfos = commands.ToList();
+        foreach (var command in commandInfos)
+        {
+            _modules.Add(command.Module);
+        }
+        
+        var dict = commandInfos.SelectMany(x => x.InvokeNames,
+                (info, name) => new {info, name})
+            .DistinctBy(arg => arg.name)
+            .ToDictionary(x => x.name, x => x.info);
+        
+        foreach (var (key, val) in dict)
+        {
+            _logger.LogTrace("Registering {CommandName} command", key);
+            if (!_commands.TryAdd(key, val))
+            {
+                _logger.LogWarning("Failed to register {CommandName} command", key);
+            }
+        }
+    }
+    
     private void AddExecutors()
     {
         var executors = CreateExecutors(_commands.Values.Distinct());
@@ -53,57 +100,120 @@ public class CommandService
         }
     }
 
-    private void AddCommands(IEnumerable<CommandInfo> commands)
-    {
-        var commandInfos = commands.ToList();
-        foreach (var command in commandInfos)
-        {
-            _modules.Add(command.Module);
-        }
-
-        var dict = commandInfos.SelectMany(x => x.InvokeNames,
-                (info, name) => new {info, name})
-            .ToDictionary(x => x.name, x => x.info);
-
-        foreach (var (key, val) in dict)
-        {
-            _logger.LogTrace("Registering {CommandName} command", key);
-            if (!_commands.TryAdd(key, val))
-            {
-                _logger.LogWarning("Failed to register {CommandName} command", key);
-            }
-        }
-    }
-
     public async Task<OneOf<Success, Error<string>, NotFound>> Execute(TcpUser tcpUser, string command)
     {
-        var args = command.Split(' ').Where(x => !string.IsNullOrWhiteSpace(x)).ToArray();
-        if (!_commands.TryGetValue(args[0], out var commandInfo))
+        // var args = command.Split(' ').Where(x => !string.IsNullOrWhiteSpace(x)).ToArray();
+        // if (!_commands.TryGetValue(args[0], out var commandInfo))
+        // {
+        //     return new NotFound();
+        // }
+
+        var args = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var commandName = args[0];
+
+        args = args[1..];
+
+        if (!_registeredCommandsOverloads.TryGetValue(commandName, out var overloads))
         {
             return new NotFound();
         }
 
-        if (!_commandExecutors.TryGetValue(commandInfo, out var executor))
+        var commandInfo = MatchOverload(args, overloads);
+        
+        if (commandInfo is null || !_registeredExecutors.TryGetValue(commandInfo, out var executor))
         {
-            _logger.LogWarning("Unable to execute {Command}: executor not registered", args[0]);
-            return new Error<string>($"Unable to execute command '{args[0]}'.");
+            _logger.LogWarning("Unable to execute {Command}: executor not registered", commandName);
+            return new Error<string>($"Unable to execute command '{commandName}'.");
         }
 
-        var context = new CommandContext(tcpUser, args[1..]);
+        var context = new CommandContext(tcpUser, args);
 
         _logger.LogDebug("Executing {CommandName} for {Username}", command, tcpUser.Username);
 
         try
         {
-            await executor.Execute(context);
+            await executor.Execute(context).ConfigureAwait(false);
         }
         catch (Exception e)
         {
-            _logger.LogInformation("Error when executing {CommandName}: {Error}", args[0], e.Message);
+            _logger.LogInformation("Error when executing {CommandName}: {Error}", commandName, e.Message);
             return new Error<string>(e.Message);
         }
 
         return new Success();
+    }
+
+    private CommandInfo? MatchOverload(string[] args, List<CommandInfo> overloads)
+    {
+        if (overloads.Count == 1) return overloads[0];
+        
+        // foreach (var overload in overloads)
+        // {
+        //     // if (args.Length < overload.Parameters.Count)
+        //     //     continue;
+        //     //
+        //     // bool match = true;
+        //     // for (int i = 0; i < overload.Parameters.Count; i++)
+        //     // {
+        //     //     var parameter = overload.Parameters[i];
+        //     //     var argument = args.ElementAtOrDefault(i);
+        //     //
+        //     //     if (argument == null)
+        //     //     {
+        //     //         match = false;
+        //     //         break;
+        //     //     }
+        //     //
+        //     //     var reader = new TypeReader(CultureInfo.InvariantCulture);
+        //     //     try
+        //     //     {
+        //     //         var parsedArgument = reader.Read(argument, parameter.Type);
+        //     //         // Additional checks or processing using the parsed argument and parameter
+        //     //
+        //     //         // Example: If the parameter has a default value and the argument is not provided,
+        //     //         // you can set the parsedArgument to the default value
+        //     //         if (parsedArgument == null && parameter.DefaultValue != null)
+        //     //             parsedArgument = parameter.DefaultValue;
+        //     //
+        //     //         // Example: Add the parsed argument to a collection or modify the command's state accordingly
+        //     //
+        //     //     }
+        //     //     catch (Exception)
+        //     //     {
+        //     //         match = false;
+        //     //         break;
+        //     //     }
+        //     // }
+        //     //
+        //     // if (match)
+        //     //     return overload;
+        // }
+        
+        var typeReader = new TypeReader(CultureInfo.InvariantCulture);
+        
+        foreach (var overload in overloads.OrderBy(x => x.Priority))
+        {
+            if (args.Length < overload.Parameters.Count(x => !x.IsOptional)) continue;
+        
+            var match = true;
+        
+            try
+            {
+                for (var i = 0; i < overload.Parameters.Count; i++)
+                {
+                    var parameter = overload.Parameters[i];
+                    var parsedArg = typeReader.Read(args[i], parameter.Type);
+                }
+            }
+            catch (Exception e)
+            {
+                match = false;
+            }
+        
+            if (match) return overload;
+        }
+        
+        return overloads[0];
     }
 
     private Dictionary<CommandInfo, CommandExecutor> CreateExecutors(IEnumerable<CommandInfo> commands)
@@ -134,6 +244,28 @@ public class CommandService
         }
 
         return dict;
+    }
+
+    private CommandExecutor CreateExecutor(CommandInfo command, TypeReader typeReader)
+    {
+        _logger.LogTrace("Creating executor for {Command} command", command.Name);
+        var paramCount = command.Parameters.Count;
+
+        try
+        {
+            var executor = paramCount == 0
+                ? new CommandExecutor0(command)
+                : CreateParamExecutor(paramCount, command, typeReader);
+
+            return executor;
+        }
+        catch (Exception e)
+        {
+            _logger.LogError("Error while creating executor for {Command} command: {Error}",
+                command.Name, e.InnerException?.Message ?? e.Message);
+
+            throw;
+        }
     }
 
     private static CommandExecutor CreateParamExecutor(int parameterCount, CommandInfo command, TypeReader reader)

@@ -8,7 +8,7 @@ using Server.Users;
 
 namespace Server;
 
-public class TcpServer
+public class TcpServer : ITcpServer
 {
     public TcpServer(IPEndPoint endPoint, ICommandHandler commandHandler)
     {
@@ -31,16 +31,16 @@ public class TcpServer
 
         while (true)
         {
-            var client = await _listener.AcceptTcpClientAsync();
+            var client = await _listener.AcceptTcpClientAsync().ConfigureAwait(false);
             Log.Debug("Accepted connection from {Remote}", client.Client.RemoteEndPoint?.ToString());
             try
             {
-                var user = await ConnectUser(client);
-                user.StartListening();
-                user.TransmissionReceived += ConnectionOnTransmissionReceived;
+                var user = await ConnectUserAsync(client, ConnectionOnTransmissionReceived).ConfigureAwait(false);
+                _ = Task.Run(user.Listen);
+                
                 _connectedUsers.Add(user);
 
-                await BroadcastConnectedUser(user);
+                await BroadcastConnectedUserAsync(user).ConfigureAwait(false);
             }
             catch (Exception e)
             {
@@ -50,44 +50,51 @@ public class TcpServer
         }
     }
 
-    private async Task ConnectionOnTransmissionReceived(TcpUser tcpUser, Packet packet)
+    private async Task ConnectionOnTransmissionReceived(Packet packet, TcpUser tcpUser)
     {
         switch (packet.OpCode)
         {
             case OpCode.Disconnect:
-                await UserDisconnected(tcpUser);
+                await UserDisconnected(tcpUser).ConfigureAwait(false);
                 break;
 
             case OpCode.SendMessage:
-                await MessageReceived(tcpUser);
+                await MessageReceived(tcpUser).ConfigureAwait(false);
                 break;
         }
     }
 
     private async Task MessageReceived(TcpUser tcpUser)
     {
-        var message = await tcpUser.ReadMessageAsync();
+        var message = await tcpUser.ReadMessageAsync().ConfigureAwait(false);
         var content = message.Content;
 
         Log.Information("<{Username}> \"{UserMessage}\"", tcpUser.Username, content);
 
         if (message.Content.StartsWith(_commandHandler.Prefix))
         {
-            await _commandHandler.Handle(tcpUser, content[1..]);
+            await _commandHandler.Handle(tcpUser, content[1..]).ConfigureAwait(false);
             return;
         }
-
-        await BroadcastMessage(message);
+        
+        await BroadcastMessageAsync(message).ConfigureAwait(false);
     }
 
-    private async Task<TcpUser> ConnectUser(TcpClient client)
+    private async Task<TcpUser> ConnectUserAsync(TcpClient client, Func<Packet, TcpUser, Task> callback)
     {
         using var reader = new NetworkReader(client.GetStream());
-        var packet = await reader.ReadPacketAsync();
+
+        var task = reader.ReadPacketAsync();
+        if (await Task.WhenAny(task, Task.Delay(_connectionTimeout)).ConfigureAwait(false) != task)
+        {
+            throw new InvalidOperationException("Connected client didn't complete the handshake.");
+        }
+
+        var packet =  await task.ConfigureAwait(false);
 
         if (packet.OpCode != OpCode.Connect)
         {
-            throw new InvalidOperationException("Connected client didn't complete the handshake.");
+            throw new InvalidOperationException("Invalid connection packet received.");
         }
 
         var username = packet[0];
@@ -95,13 +102,14 @@ public class TcpServer
         ValidateUsername(username, out var validated);
         var uid = Guid.NewGuid();
 
-        await using var writer = new NetworkWriter(client.GetStream());
+        var writer = new NetworkWriter(client.GetStream());
+        await using var _ = writer.ConfigureAwait(false);
         var response = new Packet(OpCode.Connect, validated, uid.ToString());
-        await writer.WritePacketAsync(response);
+        await writer.WritePacketAsync(response).ConfigureAwait(false);
 
         Log.Information("User {Username} has connected", validated);
 
-        return new TcpUser(client, validated, uid);
+        return new TcpUser(this, client, callback, validated, uid);
     }
 
     private void ValidateUsername(string newUsername, out string validated)
@@ -125,26 +133,28 @@ public class TcpServer
 
         _connectedUsers.Remove(user);
 
-        await BroadcastDisconnectedUser(user);
+        await user.WritePacketAsync(new Packet(OpCode.Disconnect));
+
+        await BroadcastDisconnectedUser(user).ConfigureAwait(false);
 
         user.Dispose();
     }
 
-    private async Task BroadcastMessage(Message message)
+    public async Task BroadcastMessageAsync(Message message)
     {
         foreach (var user in _connectedUsers)
         {
-            await user.WriteMessageAsync(message);
+            await user.WriteMessageAsync(message).ConfigureAwait(false);
         }
     }
 
-    private async Task BroadcastConnectedUser(User connectedUser)
+    private async Task BroadcastConnectedUserAsync(User connectedUser)
     {
         var packet = new Packet(OpCode.BroadcastConnected, connectedUser.Username, connectedUser.UidString);
 
         foreach (var user in _connectedUsers)
         {
-            await user.WritePacketAsync(packet);
+            await user.WritePacketAsync(packet).ConfigureAwait(false);
         }
     }
 
@@ -154,7 +164,7 @@ public class TcpServer
 
         foreach (var user in _connectedUsers)
         {
-            await user.WritePacketAsync(packet);
+            await user.WritePacketAsync(packet).ConfigureAwait(false);
         }
     }
 }

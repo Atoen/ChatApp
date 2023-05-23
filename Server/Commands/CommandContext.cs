@@ -14,13 +14,18 @@ public readonly struct CommandContext
     public TcpUser User { get; }
     public string[] Args { get; }
 
-    public async Task RespondAsync(string message, bool broadcast = false)
+    public async Task RespondAsync(string message)
     {
-        await User.WriteMessageAsync(Message.ServerResponse(message));
+        await User.WriteMessageAsync(Message.ServerResponse(message)).ConfigureAwait(false);
     }
 
     public async Task NotifyAsync(string notification)
     {
-        await User.WriteMessageAsync(Message.ServerNotification(notification));
+        await User.WriteMessageAsync(Message.ServerNotification(notification)).ConfigureAwait(false);
+    }
+
+    public async Task BroadcastAsync(string broadcast)
+    {
+        await User.Server.BroadcastMessageAsync(Message.ServerBroadcast(broadcast)).ConfigureAwait(false);
     }
 }

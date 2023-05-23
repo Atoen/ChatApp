@@ -13,6 +13,6 @@ public class CommandExecutor3<T1, T2, T3> : CommandParamExecutor
 
     protected override async Task Invoke(CommandContext context, object[] args)
     {
-        await _executor.Invoke(context, (T1) args[0], (T2) args[1], (T3) args[2]);
+        await _executor.Invoke(context, (T1) args[0], (T2) args[1], (T3) args[2]).ConfigureAwait(false);
     }
 }

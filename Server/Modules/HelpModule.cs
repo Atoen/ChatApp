@@ -16,7 +16,7 @@ public class HelpModule : Module
     {
         var builder = new StringBuilder();
 
-        foreach (var command in _commandService.Commands)
+        foreach (var command in _commandService.Commands.DistinctBy(x => x.Name))
         {
             builder.Append(command.Name);
 
@@ -33,6 +33,6 @@ public class HelpModule : Module
             builder.Append('\n');
         }
 
-        await context.NotifyAsync(builder.ToString());
+        await context.NotifyAsync(builder.ToString()).ConfigureAwait(false);
     }
 }

@@ -1,5 +1,4 @@
 ﻿using System.Buffers;
-using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
@@ -16,16 +15,16 @@ public class NetworkReader : BinaryReader
         _stream = stream;
     }
 
-    public async ValueTask<Packet> ReadPacketAsync() => await ReadAsync<Packet>();
+    public async Task<Packet> ReadPacketAsync() => await ReadAsync<Packet>().ConfigureAwait(false);
 
-    public async ValueTask<Message> ReadMessageAsync() => await ReadAsync<Message>();
+    public async Task<Message> ReadMessageAsync() => await ReadAsync<Message>().ConfigureAwait(false);
 
-    private async ValueTask<T> ReadAsync<T>()
+    private async Task<T> ReadAsync<T>()
     {
         var length = Read7BitEncodedInt();
         var buffer = ArrayPool<byte>.Shared.Rent(length);
 
-        var read = await _stream.ReadAsync(buffer.AsMemory()[..length]);
+        var read = await _stream.ReadAsync(buffer.AsMemory()[..length]).ConfigureAwait(false);
 
         if (read != length)
         {

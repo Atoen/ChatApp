@@ -1,14 +1,16 @@
 ﻿using System.Text;
-using OneOf.Types;
 using Server;
 using Server.Messages;
 
 Console.OutputEncoding = Encoding.Unicode;
 
+Console.Clear();
+
+
 var client = new Client();
 
-AppDomain.CurrentDomain.ProcessExit += async (_, _) => await client.CloseAsync();
-Console.CancelKeyPress += async (_, _) => await client.CloseAsync();
+AppDomain.CurrentDomain.ProcessExit += async (_, _) => await client.CloseAsync().ConfigureAwait(false);
+Console.CancelKeyPress += async (_, _) => await client.CloseAsync().ConfigureAwait(false);
 
 Console.Write("Enter username: ");
 
@@ -23,7 +25,7 @@ async Task AnimateConnection(CancellationToken cancellationToken)
     while (!cancellationToken.IsCancellationRequested)
     {
         Console.Write($"\rConnecting {symbols[index]}");
-        await Task.Delay(200, cancellationToken);
+        await Task.Delay(200, cancellationToken).ConfigureAwait(false);
 
         index = (index + 1) % symbols.Length;
     }
@@ -32,18 +34,15 @@ async Task AnimateConnection(CancellationToken cancellationToken)
 var tokenSource = new CancellationTokenSource();
 _ = AnimateConnection(tokenSource.Token);
 
-var result = await client.ConnectToServerAsync(username);
+var result = await client.ConnectToServerAsync(username).ConfigureAwait(false);
 tokenSource.Cancel();
 Console.Clear();
 
 result.Switch(
-    success => Console.WriteLine("Connected to the server."),
-    changedName => Console.WriteLine($"Connected to the server as {changedName.Value}"),
+    success => Console.WriteLine($"Connected to the server as {success.Value}."),
     error =>
     {
         Console.WriteLine(error.Value);
-        Console.Read();
-
         Environment.Exit(1);
     }
 );
@@ -67,8 +66,8 @@ do
 
     if (!string.IsNullOrWhiteSpace(message))
     {
-        await client.SendMessageAsync(message);
+        await client.SendMessageAsync(message).ConfigureAwait(false);
     }
 } while (message != "/exit");
 
-await client.CloseAsync();
+await client.CloseAsync().ConfigureAwait(false);

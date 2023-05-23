@@ -1,7 +1,6 @@
 ﻿using System.Globalization;
 using Server.Attributes;
 using Server.Commands;
-using Server.Messages;
 
 namespace Server.Modules;
 
@@ -9,18 +8,34 @@ namespace Server.Modules;
 public class RespondModule : Module
 {
     [Command("ping"), Alias("p"), Summary("Pongs the ping")]
-    public async Task Ping(CommandContext context) => await context.RespondAsync("Pong!");
+    public async Task Ping(CommandContext context) => await context.RespondAsync("Pong!").ConfigureAwait(false);
 
     [Command("me")]
-    public async Task MeCommand(CommandContext context, [Remainder] string text = "you")
+    public async Task MeCommand(CommandContext context, [Remainder] string text)
     {
-        await context.RespondAsync(text, true);
+        await context.BroadcastAsync(text).ConfigureAwait(false);
     }
 
     [Command("time"), Alias("t"), Summary("Displays current server time")]
-    public async Task TimeCommand(CommandContext context) => await context.RespondAsync(DateTime.Now.ToLongTimeString());
+    public async Task TimeCommand(CommandContext context) => await context.RespondAsync(DateTime.Now.ToLongTimeString()).ConfigureAwait(false);
 
+
+    
     [Command("calculate"), Alias("calc", "c"), ExtraArgs(ExtraArgsHandleMode.Throw)]
+    [OverloadPriority(1)]
+    public async Task CalculateCommand(CommandContext context, double num1, string operation, double num2)
+    {
+        var result = operation switch
+        {
+            "log" => Math.Log(num1, num2),
+            _ => throw new ArgumentOutOfRangeException(nameof(operation))
+        };
+
+        await context.RespondAsync(result.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+    }
+    
+    [Command("calculate"), Alias("calc", "c"), ExtraArgs(ExtraArgsHandleMode.Throw)]
+    [OverloadPriority(0)]
     public async Task CalculateCommand(CommandContext context, double num1, char @operator, double num2)
     {
         var result = @operator switch
@@ -33,6 +48,6 @@ public class RespondModule : Module
             _ => throw new ArgumentOutOfRangeException(nameof(@operator))
         };
 
-        await context.RespondAsync(result.ToString(CultureInfo.InvariantCulture));
+        await context.RespondAsync(result.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
     }
 }

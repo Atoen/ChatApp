@@ -57,7 +57,7 @@ public class CommandHandler : ICommandHandler
     {
         if (command.Length == 0) return;
 
-        var result = await _commandService.Execute(user, command);
+        var result = await _commandService.Execute(user, command).ConfigureAwait(false);
         var response = result.Match(
             success => string.Empty,
             error => error.Value,
@@ -65,7 +65,7 @@ public class CommandHandler : ICommandHandler
 
         if (response != string.Empty)
         {
-            await user.WriteMessageAsync(Message.ServerNotification(response));
+            await user.WriteMessageAsync(Message.ServerNotification(response)).ConfigureAwait(false);
         }
     }
 

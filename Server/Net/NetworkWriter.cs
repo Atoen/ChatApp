@@ -14,15 +14,15 @@ public class NetworkWriter : BinaryWriter
         _stream = stream;
     }
 
-    public async ValueTask WritePacketAsync(Packet packet) => await WriteAsync(packet);
+    public async ValueTask WritePacketAsync(Packet packet) => await WriteAsync(packet).ConfigureAwait(false);
 
-    public async ValueTask WriteMessageAsync(Message message) => await WriteAsync(message);
+    public async ValueTask WriteMessageAsync(Message message) => await WriteAsync(message).ConfigureAwait(false);
 
     public async ValueTask WriteAsync<T>(T data)
     {
         var bytes = JsonSerializer.SerializeToUtf8Bytes(data);
 
         Write7BitEncodedInt(bytes.Length);
-        await _stream.WriteAsync(bytes);
+        await _stream.WriteAsync(bytes).ConfigureAwait(false);
     }
 }

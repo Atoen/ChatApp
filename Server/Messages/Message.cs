@@ -41,6 +41,11 @@ public class Message
         return new Message(SystemSender, notification, MessageType.SystemNotification);
     }
 
+    public static Message ServerBroadcast(string broadcast)
+    {
+        return new Message(SystemSender, broadcast);
+    }
+
     public override string ToString()
     {
         return Type switch

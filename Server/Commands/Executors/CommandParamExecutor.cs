@@ -17,7 +17,7 @@ public abstract class CommandParamExecutor : CommandExecutor
     {
         ValidateArgCount(context);
         
-        await Invoke(context, ParseArgs(context.Args));
+        await Invoke(context, ParseArgs(context.Args)).ConfigureAwait(false);
     }
 
     private void ValidateArgCount(CommandContext context)

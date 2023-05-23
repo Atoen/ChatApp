@@ -21,54 +21,61 @@ public class Client
     private NetworkStream _stream = default!;
 
     private NetworkReader _reader = default!;
-    private NetworkWriter _networkWriter = default!;
+    private NetworkWriter _writer = default!;
 
-    public async Task<OneOf<Success, Success<string>, Error<string>>> ConnectToServerAsync(string username)
+    public async Task<OneOf<Success<string>, Error<string>>> ConnectToServerAsync(string username)
     {
         if (_client.Connected) return new Error<string>("Client already connected.");
 
         try
         {
-            await _client.ConnectAsync("127.0.0.1", 13000);
+            await _client.ConnectAsync("127.0.0.1", 13000).ConfigureAwait(false);
             _stream = _client.GetStream();
+
+            _writer = new NetworkWriter(_stream);
+            _reader = new NetworkReader(_stream);
+
+            var packet = new Packet(OpCode.Connect, username);
+            await _writer.WritePacketAsync(packet).ConfigureAwait(false);
+
+            var response = await _reader.ReadPacketAsync().ConfigureAwait(false);
+            if (response.OpCode != OpCode.Connect)
+            {
+                return new Error<string>("Server didn't complete the handshake.");
+            }
+
+            User = new User(response[0], Guid.Parse(response[1]));
+
+            return new Success<string>(User.Username);
         }
         catch (SocketException e)
         {
             return new Error<string>(e.Message);
         }
-
-        _networkWriter = new NetworkWriter(_stream);
-        _reader = new NetworkReader(_stream);
-
-        var packet = new Packet(OpCode.Connect, username);
-        await _networkWriter.WritePacketAsync(packet);
-
-        var response = await _reader.ReadPacketAsync();
-        if (response.OpCode != OpCode.Connect) return new Error<string>("Server didn't complete the handshake.");
-
-        User = new User(response[0], Guid.Parse(response[1]));
-
-        return username == User.Username
-            ? new Success()
-            : new Success<string>(User.Username);
+        catch (IOException)
+        {
+            return new Error<string>("Remote host refused the connection.");
+        }
     }
 
     public void Listen() => Task.Run(ProcessIncomingPackets);
 
     public async Task SendMessageAsync(string message)
     {
-        await _networkWriter.WritePacketAsync(new Packet(OpCode.SendMessage));
-        await _networkWriter.WriteMessageAsync(new Message(User, message));
+        await _writer.WritePacketAsync(new Packet(OpCode.SendMessage)).ConfigureAwait(false);
+        await _writer.WriteMessageAsync(new Message(User, message)).ConfigureAwait(false);
     }
 
     public async Task CloseAsync()
     {
-        if (_client.Connected)
-        {
-            await _networkWriter.WritePacketAsync(new Packet(OpCode.Disconnect));
-        }
+        if (!_client.Connected) return;
 
-        await _client.Client.DisconnectAsync(true);
+        await _writer.WritePacketAsync(new Packet(OpCode.Disconnect)).ConfigureAwait(false);
+        var confirmationTask = _reader.ReadPacketAsync();
+
+        await Task.WhenAny(confirmationTask, Task.Delay(TimeSpan.FromSeconds(1)));
+        
+        await _client.Client.DisconnectAsync(true).ConfigureAwait(false);
     }
 
     private async Task ProcessIncomingPackets()
@@ -78,7 +85,7 @@ public class Client
             Packet packet;
             try
             {
-                packet = await _reader.ReadPacketAsync();
+                packet = await _reader.ReadPacketAsync().ConfigureAwait(false);
             }
             catch (IOException e) // Client was closed while awaiting the read
             {
@@ -91,7 +98,7 @@ public class Client
                 case OpCode.SendMessage:
                 case OpCode.ReceiveMessage:
 
-                    var message = await _reader.ReadMessageAsync();
+                    var message = await _reader.ReadMessageAsync().ConfigureAwait(false);
                     if (message.Author != User)
                     {
                         MessageReceived?.Invoke(this,  message);
@@ -110,6 +117,10 @@ public class Client
                     {
                         NotificationReceived?.Invoke(this, $"{packet[0]} has disconnected from the server.");
                     }
+                    break;
+                
+                case OpCode.Error:
+                    NotificationReceived?.Invoke(this, packet[0]);
                     break;
             }
         }

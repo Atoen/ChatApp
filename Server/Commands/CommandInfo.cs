@@ -9,6 +9,7 @@ public class CommandInfo
     public ModuleInfo Module { get; private init; } = null!;
     public string Name { get; private set; } = "";
     public string Summary { get; private set; } = "";
+    public int Priority { get; private set; }
 
     public ExtraArgsHandleMode ExtraArgsHandleMode { get; private set; } = ExtraArgsHandleMode.Ignore;
     public IReadOnlyList<string> Aliases => _aliases;
@@ -58,6 +59,10 @@ public class CommandInfo
 
                 case ExtraArgsAttribute extraArgs:
                     commandInfo.ExtraArgsHandleMode = extraArgs.HandleMode;
+                    break;
+                
+                case OverloadPriorityAttribute priority:
+                    commandInfo.Priority = priority.Value;
                     break;
 
                 default:

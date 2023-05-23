@@ -15,7 +15,6 @@ Log.Logger = new LoggerConfiguration().
 var services = new ServiceCollection();
 services.AddSingleton<ICommandHandler, CommandHandler>();
 services.AddSingleton<CommandService>();
-// services.AddSingleton<HttpClient>();
 services.AddLogging(x => x.AddSerilog(Log.Logger));
 
 var httpClient = new HttpClient();
@@ -29,6 +28,6 @@ var endpoint = new IPEndPoint(address, 13000);
 
 var handler = provider.GetRequiredService<ICommandHandler>();
 var server = new TcpServer(endpoint, handler);
-await server.Start();
+await server.Start().ConfigureAwait(false);
 
-await Task.Delay(Timeout.Infinite);
+await Task.Delay(Timeout.Infinite).ConfigureAwait(false);

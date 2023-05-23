@@ -15,7 +15,7 @@ public abstract class CommandExecutor
             throw new InvalidOperationException("Command was invoked with too many parameters.");
         }
 
-        await Invoke(context, Array.Empty<object>());
+        await Invoke(context, Array.Empty<object>()).ConfigureAwait(false);
     }
 
     protected abstract Task Invoke(CommandContext context, object[] args);

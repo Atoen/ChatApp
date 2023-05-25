@@ -61,7 +61,7 @@ public partial class CommandService
     }
 
     private static readonly Regex ArgsRegex = ArgsSplitRegex();
-    
+
     private static void SortCommandInfos(ConcurrentDictionary<string, List<CommandInfo>> dict)
     {
         foreach (var commandList in dict.Values)

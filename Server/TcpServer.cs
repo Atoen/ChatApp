@@ -24,7 +24,7 @@ public class TcpServer : ITcpServer
     private readonly List<TcpUser> _connectedUsers = new();
 
     private readonly TimeSpan _connectionTimeout = TimeSpan.FromSeconds(10);
-    
+
     public async Task Start()
     {
         _listener.Start();
@@ -39,7 +39,7 @@ public class TcpServer : ITcpServer
             {
                 var user = await ConnectUserAsync(client, ConnectionOnTransmissionReceived).ConfigureAwait(false);
                 _ = Task.Run(user.Listen);
-                
+
                 _connectedUsers.Add(user);
 
                 await BroadcastConnectedUserAsync(user).ConfigureAwait(false);

@@ -24,7 +24,7 @@ public class TypeReader
 
         return result;
     }
-    
+
     private static MethodInfo GetParseMethod(Type type)
     {
         if (!ParseMethodCache.TryGetValue(type, out var parseMethod))

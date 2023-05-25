@@ -114,7 +114,7 @@ public class Client
                         NotificationReceived?.Invoke(this, $"{packet[0]} has disconnected from the server.");
                     }
                     break;
-                
+
                 case OpCode.Error:
                     NotificationReceived?.Invoke(this, packet[0]);
                     break;

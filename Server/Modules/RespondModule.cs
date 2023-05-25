@@ -18,7 +18,7 @@ public class RespondModule : Module
 
     [Command("time"), Alias("t"), Summary("Displays current server time")]
     public async Task TimeCommand(CommandContext context) => await context.RespondAsync(DateTime.Now.ToLongTimeString()).ConfigureAwait(false);
-    
+
     [Command("calculate"), Alias("calc", "c"), ExtraArgs(ExtraArgsHandleMode.Throw)]
     public async Task CalculateCommand(CommandContext context, double num1, char @operator, double num2)
     {

@@ -21,11 +21,11 @@ public sealed class TcpUser : User, IDisposable
         _reader = new NetworkReader(stream);
         _writer = new NetworkWriter(stream);
     }
-    
+
     private readonly Func<Packet, TcpUser, Task> _callback;
     private readonly NetworkReader _reader;
     private readonly NetworkWriter _writer;
-    
+
     public async Task Listen()
     {
         while (Client.Connected)

@@ -62,7 +62,7 @@ public class CommandInfo
                 case ExtraArgsAttribute extraArgs:
                     commandInfo.ExtraArgsHandleMode = extraArgs.HandleMode;
                     break;
-                
+
                 case OverloadPriorityAttribute priority:
                     commandInfo.Priority = priority.Value;
                     break;

@@ -35,7 +35,7 @@ public class HelpModule : Module
 
         await context.NotifyAsync(builder.ToString()).ConfigureAwait(false);
     }
-    
+
     [Command("help"), Alias("h"), Summary("Displays information about specified command")]
     public async Task HelpCommand(CommandContext context, string commandName)
     {

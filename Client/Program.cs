@@ -6,7 +6,7 @@ Console.OutputEncoding = Encoding.Unicode;
 
 Console.Clear();
 
-var client = new Client();
+var client = new Server.Client();
 
 AppDomain.CurrentDomain.ProcessExit += async (_, _) => await client.CloseAsync().ConfigureAwait(false);
 Console.CancelKeyPress += async (_, _) => await client.CloseAsync().ConfigureAwait(false);
@@ -44,7 +44,7 @@ result.Switch(
         Console.WriteLine(error.Value);
         Console.WriteLine("Press any key to continue...");
         Console.ReadKey();
-        
+
         Environment.Exit(1);
     }
 );

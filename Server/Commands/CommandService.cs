@@ -1,15 +1,17 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using OneOf;
 using OneOf.Types;
+using Server.Attributes;
 using Server.Commands.Executors;
 using Server.Users;
 
 namespace Server.Commands;
 
-public class CommandService
+public partial class CommandService
 {
     private readonly ILogger<CommandService> _logger;
 
@@ -23,18 +25,13 @@ public class CommandService
     public IEnumerable<ModuleInfo> Modules => _modules.Select(x => x);
     public IEnumerable<CommandInfo> Commands => _modules.SelectMany(x => x.Commands);
 
-    private readonly ConcurrentDictionary<string, CommandInfo> _commands = new();
-    private readonly ConcurrentDictionary<CommandInfo, CommandExecutor> _commandExecutors = new();
-
     private readonly HashSet<ModuleInfo> _modules = new();
-    private readonly HashSet<string> _registeredCommands = new();
-    private readonly Dictionary<string, List<CommandInfo>> _registeredCommandsOverloads = new();
-    private readonly ConcurrentDictionary<CommandInfo, CommandExecutor> _registeredExecutors = new();
+    private readonly ConcurrentDictionary<string, List<CommandInfo>> _commands = new();
+    private readonly ConcurrentDictionary<CommandInfo, CommandExecutor> _executors = new();
 
     public void RegisterCommands(IEnumerable<CommandInfo> commands)
     {
         var start = Stopwatch.GetTimestamp();
-
         var typeReader = new TypeReader(CultureInfo.InvariantCulture);
         
         foreach (var command in commands)
@@ -42,91 +39,71 @@ public class CommandService
             _modules.Add(command.Module);
             foreach (var name in command.InvokeNames)
             {
-                if (_registeredCommandsOverloads.TryGetValue(name, out var overloads))
+                if (_commands.TryGetValue(name, out var overloads))
                 {
                     overloads.Add(command);
                 }
                 else
                 {
-                    _registeredCommandsOverloads.TryAdd(name, new List<CommandInfo> {command});
+                    _commands.TryAdd(name, new List<CommandInfo> {command});
                 }
             }
 
-            _registeredExecutors.TryAdd(command, CreateExecutor(command, typeReader));
+            _executors.TryAdd(command, CreateExecutor(command, typeReader));
         }
         
-        // AddCommands(commands);
-        // AddExecutors();
+        SortCommandInfos(_commands);
 
         var stop = Stopwatch.GetTimestamp();
         var time = TimeSpan.FromTicks(stop - start);
 
-        _logger.LogDebug("Successfully Registered {ExecutorCount} executors in {Time}", _registeredExecutors.Count, time);
+        _logger.LogDebug("Successfully Registered {ExecutorCount} executors in {Time}", _executors.Count, time);
     }
 
-    private void AddCommands(IEnumerable<CommandInfo> commands)
-    {
-        var commandInfos = commands.ToList();
-        foreach (var command in commandInfos)
-        {
-            _modules.Add(command.Module);
-        }
-        
-        var dict = commandInfos.SelectMany(x => x.InvokeNames,
-                (info, name) => new {info, name})
-            .DistinctBy(arg => arg.name)
-            .ToDictionary(x => x.name, x => x.info);
-        
-        foreach (var (key, val) in dict)
-        {
-            _logger.LogTrace("Registering {CommandName} command", key);
-            if (!_commands.TryAdd(key, val))
-            {
-                _logger.LogWarning("Failed to register {CommandName} command", key);
-            }
-        }
-    }
+    private static readonly Regex ArgsRegex = ArgsSplitRegex();
     
-    private void AddExecutors()
+    private static void SortCommandInfos(ConcurrentDictionary<string, List<CommandInfo>> dict)
     {
-        var executors = CreateExecutors(_commands.Values.Distinct());
-        foreach (var (key, val) in executors)
+        foreach (var commandList in dict.Values)
         {
-            _logger.LogTrace("Registering {CommandName} executor", key.Name);
-            if (!_commandExecutors.TryAdd(key, val))
+            commandList.Sort((x, y) =>
             {
-                _logger.LogWarning("Failed to register {CommandName} executor", key.Name);
-            }
+                var priorityComparison = x.Priority.CompareTo(y.Priority);
+
+                return priorityComparison != 0 ? priorityComparison :
+                    y.Parameters.Count.CompareTo(x.Parameters.Count);
+            });
         }
     }
 
     public async Task<OneOf<Success, Error<string>, NotFound>> Execute(TcpUser tcpUser, string command)
     {
-        // var args = command.Split(' ').Where(x => !string.IsNullOrWhiteSpace(x)).ToArray();
-        // if (!_commands.TryGetValue(args[0], out var commandInfo))
-        // {
-        //     return new NotFound();
-        // }
+        var tokens = ArgsRegex.Split(command).Where(x => !string.IsNullOrWhiteSpace(x)).ToArray();
 
-        var args = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        var commandName = args[0];
+        if (tokens.Length == 0) return new NotFound();
+        
+        var commandName = tokens[0];
+        var args = tokens[1..];
 
-        args = args[1..];
-
-        if (!_registeredCommandsOverloads.TryGetValue(commandName, out var overloads))
+        if (!_commands.TryGetValue(commandName, out var overloads))
         {
             return new NotFound();
         }
 
-        var commandInfo = MatchOverload(args, overloads);
+        var commandInfo = MatchOverload(args, overloads, out var parsedArgs, out var message);
+
+        if (commandInfo is null)
+        {
+            return new Error<string>(message!);
+        }
         
-        if (commandInfo is null || !_registeredExecutors.TryGetValue(commandInfo, out var executor))
+        if (!_executors.TryGetValue(commandInfo, out var executor))
         {
             _logger.LogWarning("Unable to execute {Command}: executor not registered", commandName);
             return new Error<string>($"Unable to execute command '{commandName}'.");
         }
 
-        var context = new CommandContext(tcpUser, args);
+        var context = new CommandContext(tcpUser, parsedArgs);
 
         _logger.LogDebug("Executing {CommandName} for {Username}", command, tcpUser.Username);
 
@@ -143,107 +120,96 @@ public class CommandService
         return new Success();
     }
 
-    private CommandInfo? MatchOverload(string[] args, List<CommandInfo> overloads)
+    private CommandInfo? MatchOverload(string[] args, List<CommandInfo> overloads, out object[] parsedArgs, out string? message)
     {
-        if (overloads.Count == 1) return overloads[0];
-        
-        // foreach (var overload in overloads)
-        // {
-        //     // if (args.Length < overload.Parameters.Count)
-        //     //     continue;
-        //     //
-        //     // bool match = true;
-        //     // for (int i = 0; i < overload.Parameters.Count; i++)
-        //     // {
-        //     //     var parameter = overload.Parameters[i];
-        //     //     var argument = args.ElementAtOrDefault(i);
-        //     //
-        //     //     if (argument == null)
-        //     //     {
-        //     //         match = false;
-        //     //         break;
-        //     //     }
-        //     //
-        //     //     var reader = new TypeReader(CultureInfo.InvariantCulture);
-        //     //     try
-        //     //     {
-        //     //         var parsedArgument = reader.Read(argument, parameter.Type);
-        //     //         // Additional checks or processing using the parsed argument and parameter
-        //     //
-        //     //         // Example: If the parameter has a default value and the argument is not provided,
-        //     //         // you can set the parsedArgument to the default value
-        //     //         if (parsedArgument == null && parameter.DefaultValue != null)
-        //     //             parsedArgument = parameter.DefaultValue;
-        //     //
-        //     //         // Example: Add the parsed argument to a collection or modify the command's state accordingly
-        //     //
-        //     //     }
-        //     //     catch (Exception)
-        //     //     {
-        //     //         match = false;
-        //     //         break;
-        //     //     }
-        //     // }
-        //     //
-        //     // if (match)
-        //     //     return overload;
-        // }
-        
-        var typeReader = new TypeReader(CultureInfo.InvariantCulture);
-        
+        parsedArgs = Array.Empty<object>();
+        message = null;
+
+        if (overloads.Count == 1)
+        {
+            var commandInfo = overloads[0];
+
+            if (!ValidateArgsCount(args, ref message, commandInfo)) return null;
+            var result = ParseArgs(commandInfo, args);
+
+            if (result.IsT0)
+            {
+                parsedArgs = result.AsT0;
+                return commandInfo;
+            }
+
+            message = result.AsT1.Value;
+            return null;
+        }
+
         foreach (var overload in overloads.OrderBy(x => x.Priority))
         {
             if (args.Length < overload.Parameters.Count(x => !x.IsOptional)) continue;
-        
-            var match = true;
-        
-            try
+
+            if (!ValidateArgsCount(args, ref message, overload)) continue;
+            var result = ParseArgs(overload, args);
+
+            if (result.IsT0)
             {
-                for (var i = 0; i < overload.Parameters.Count; i++)
-                {
-                    var parameter = overload.Parameters[i];
-                    var parsedArg = typeReader.Read(args[i], parameter.Type);
-                }
+                parsedArgs = result.AsT0;
+                return overload;
             }
-            catch (Exception e)
-            {
-                match = false;
-            }
-        
-            if (match) return overload;
         }
-        
-        return overloads[0];
+
+        message = "No matching overload found.";
+        return null;
     }
 
-    private Dictionary<CommandInfo, CommandExecutor> CreateExecutors(IEnumerable<CommandInfo> commands)
+    private static bool ValidateArgsCount(string[] args, ref string? message, CommandInfo commandInfo)
     {
-        var reader = new TypeReader(CultureInfo.InvariantCulture);
-
-        var dict = new Dictionary<CommandInfo, CommandExecutor>();
-        foreach (var command in commands)
+        if (args.Length < commandInfo.RequiredParamCount)
         {
-            _logger.LogTrace("Creating executor for {Command} command", command.Name);
-            var paramCount = command.Parameters.Count;
+            message = "Too few arguments provided.";
+            return false;
+        }
+
+        if (args.Length > commandInfo.Parameters.Count &&
+            commandInfo.ExtraArgsHandleMode == ExtraArgsHandleMode.Throw)
+        {
+            message = "Too many arguments provided.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private OneOf<object[], Error<string>> ParseArgs(CommandInfo commandInfo, string[] args)
+    {
+        var typeReader = new TypeReader(CultureInfo.InvariantCulture);
+        var parametersCount = commandInfo.Parameters.Count;
+        var parsedArgs = new object[parametersCount];
+
+        for (var i = 0; i < args.Length; i++)
+        {
+            if (i >= parametersCount) break;
+
+            var parameter = commandInfo.Parameters[i];
+            var toRead = parameter.IsRemainder
+                ? string.Join(' ', args[i..])
+                : args[i];
 
             try
             {
-                var executor = paramCount == 0
-                    ? new CommandExecutor0(command)
-                    : CreateParamExecutor(paramCount, command, reader);
-
-                dict.Add(command, executor);
+                parsedArgs[i] = typeReader.Read(toRead, parameter);
             }
-            catch (Exception e)
+            catch
             {
-                _logger.LogError("Error while creating executor for {Command} command: {Error}",
-                    command.Name, e.InnerException?.Message ?? e.Message);
-
-                throw;
+                return new Error<string>(
+                    $"Arg '{args[i]}' is in invalid format. Expected {parameter.Type.Name}");
             }
         }
 
-        return dict;
+        for (var i = args.Length; i < parametersCount; i++)
+        {
+            parsedArgs[i] = commandInfo.Parameters[i].DefaultValue!;
+        }
+
+        return parsedArgs;
     }
 
     private CommandExecutor CreateExecutor(CommandInfo command, TypeReader typeReader)
@@ -285,4 +251,7 @@ public class CommandService
 
         return executor;
     }
+
+    [GeneratedRegex("\\s+(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)", RegexOptions.Compiled)]
+    private static partial Regex ArgsSplitRegex();
 }

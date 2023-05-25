@@ -17,7 +17,7 @@ public abstract class CommandParamExecutor : CommandExecutor
     {
         ValidateArgCount(context);
         
-        await Invoke(context, ParseArgs(context.Args)).ConfigureAwait(false);
+        await Invoke(context, context.Args).ConfigureAwait(false);
     }
 
     private void ValidateArgCount(CommandContext context)
@@ -40,30 +40,5 @@ public abstract class CommandParamExecutor : CommandExecutor
         {
             throw new InvalidOperationException("Command was invoked with too many parameters.");
         }
-    }
-
-    private object[] ParseArgs(string[] args)
-    {
-        var parametersCount = CommandInfo.Parameters.Count;
-        var parsedArgs = new object[parametersCount];
-
-        for (var i = 0; i < args.Length; i++)
-        {
-            if (i >= parametersCount) break;
-
-            var parameter = CommandInfo.Parameters[i];
-            var toRead = parameter.IsRemainder
-                ? string.Join(' ', args[i..])
-                : args[i];
-
-            parsedArgs[i] = _typeReader.Read(toRead, parameter.Type);
-        }
-
-        for (var i = args.Length; i < parametersCount; i++)
-        {
-            parsedArgs[i] = CommandInfo.Parameters[i].DefaultValue!;
-        }
-
-        return parsedArgs;
     }
 }

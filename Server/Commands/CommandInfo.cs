@@ -11,6 +11,8 @@ public class CommandInfo
     public string Summary { get; private set; } = "";
     public int Priority { get; private set; }
 
+    public int RequiredParamCount => Parameters.Count(x => !x.IsOptional);
+
     public ExtraArgsHandleMode ExtraArgsHandleMode { get; private set; } = ExtraArgsHandleMode.Ignore;
     public IReadOnlyList<string> Aliases => _aliases;
     public IReadOnlyList<ParameterInfo> Parameters => _parameters;

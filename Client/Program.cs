@@ -6,7 +6,6 @@ Console.OutputEncoding = Encoding.Unicode;
 
 Console.Clear();
 
-
 var client = new Client();
 
 AppDomain.CurrentDomain.ProcessExit += async (_, _) => await client.CloseAsync().ConfigureAwait(false);
@@ -43,6 +42,9 @@ result.Switch(
     error =>
     {
         Console.WriteLine(error.Value);
+        Console.WriteLine("Press any key to continue...");
+        Console.ReadKey();
+        
         Environment.Exit(1);
     }
 );
@@ -59,15 +61,12 @@ client.MessageReceived += delegate(object? _, Message message)
 
 client.Listen();
 
-string? message;
-do
+while (client.Connected)
 {
-    message = Console.ReadLine() ?? string.Empty;
+    var message = Console.ReadLine() ?? string.Empty;
 
     if (!string.IsNullOrWhiteSpace(message))
     {
         await client.SendMessageAsync(message).ConfigureAwait(false);
     }
-} while (message != "/exit");
-
-await client.CloseAsync().ConfigureAwait(false);
+}

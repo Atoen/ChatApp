@@ -4,9 +4,9 @@ public enum OpCode : byte
 {
     Connect = 1,
     Disconnect,
-    SendMessage,
-    ReceiveMessage,
+    TransferMessage,
     BroadcastConnected,
     BroadcastDisconnected,
     Error,
+    TransferFile
 }

@@ -5,6 +5,7 @@ using OneOf.Types;
 using Server.Messages;
 using Server.Net;
 using Server.Users;
+using System;
 
 namespace Server;
 
@@ -29,7 +30,7 @@ public class Client
 
         try
         {
-            await _client.ConnectAsync("127.0.0.1", 13000).ConfigureAwait(false);
+            await _client.ConnectAsync("", 13000).ConfigureAwait(false);
             _stream = _client.GetStream();
 
             _writer = new NetworkWriter(_stream);
@@ -62,7 +63,7 @@ public class Client
 
     public async Task SendMessageAsync(string message)
     {
-        await _writer.WritePacketAsync(new Packet(OpCode.SendMessage)).ConfigureAwait(false);
+        await _writer.WritePacketAsync(new Packet(OpCode.TransferMessage)).ConfigureAwait(false);
         await _writer.WriteMessageAsync(new Message(User, message)).ConfigureAwait(false);
     }
 
@@ -71,10 +72,6 @@ public class Client
         if (!_client.Connected) return;
 
         await _writer.WritePacketAsync(new Packet(OpCode.Disconnect)).ConfigureAwait(false);
-        var confirmationTask = _reader.ReadPacketAsync();
-
-        await Task.WhenAny(confirmationTask, Task.Delay(TimeSpan.FromSeconds(1)));
-        
         await _client.Client.DisconnectAsync(true).ConfigureAwait(false);
     }
 
@@ -95,10 +92,9 @@ public class Client
 
             switch (packet.OpCode)
             {
-                case OpCode.SendMessage:
-                case OpCode.ReceiveMessage:
-
-                    var message = await _reader.ReadMessageAsync().ConfigureAwait(false);
+                case OpCode.TransferMessage:
+                // case OpCode.ReceiveMessage:
+                var message = await _reader.ReadMessageAsync().ConfigureAwait(false);
                     if (message.Author != User)
                     {
                         MessageReceived?.Invoke(this,  message);

@@ -10,19 +10,21 @@ namespace Server;
 
 public class TcpServer : ITcpServer
 {
-    public TcpServer(IPEndPoint endPoint, ICommandHandler commandHandler)
+    public TcpServer(IPEndPoint endPoint, ICommandHandler commandHandler, FileTransferManager fileTransferManager)
     {
         _listener = new TcpListener(endPoint);
         _commandHandler = commandHandler;
+        _fileTransferManager = fileTransferManager;
     }
 
     private readonly ICommandHandler _commandHandler;
+    private readonly FileTransferManager _fileTransferManager;
 
     private readonly TcpListener _listener;
     private readonly List<TcpUser> _connectedUsers = new();
 
     private readonly TimeSpan _connectionTimeout = TimeSpan.FromSeconds(10);
-
+    
     public async Task Start()
     {
         _listener.Start();
@@ -50,17 +52,23 @@ public class TcpServer : ITcpServer
         }
     }
 
-    private async Task ConnectionOnTransmissionReceived(Packet packet, TcpUser tcpUser)
+    private async Task ConnectionOnTransmissionReceived(Packet packet, TcpUser user)
     {
         switch (packet.OpCode)
         {
             case OpCode.Disconnect:
-                await UserDisconnected(tcpUser).ConfigureAwait(false);
+                await UserDisconnected(user).ConfigureAwait(false);
                 break;
 
-            case OpCode.SendMessage:
-                await MessageReceived(tcpUser).ConfigureAwait(false);
+            case OpCode.TransferMessage:
+                await MessageReceived(user).ConfigureAwait(false);
                 break;
+
+            case OpCode.TransferFile:
+            {
+                await BroadcastMessageAsync(Message.ServerBroadcast($"{user.Username} wants to share the {packet[0]} file."));
+                break;
+            }
         }
     }
 
@@ -137,6 +145,15 @@ public class TcpServer : ITcpServer
 
         await BroadcastDisconnectedUser(user).ConfigureAwait(false);
 
+        user.Dispose();
+    }
+
+    public async Task DisconnectUserOnError(TcpUser user)
+    {
+        Log.Information("User {Username} has lost connection", user.Username);
+        _connectedUsers.Remove(user);
+
+        await BroadcastDisconnectedUser(user).ConfigureAwait(false);
         user.Dispose();
     }
 

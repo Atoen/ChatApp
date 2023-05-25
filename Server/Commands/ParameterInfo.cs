@@ -1,6 +1,7 @@
 ﻿using System.Collections.Immutable;
 using System.Reflection;
 using Server.Attributes;
+using Server.Exceptions;
 
 namespace Server.Commands;
 
@@ -15,6 +16,7 @@ public class ParameterInfo
 
     public bool IsOptional { get; private set; }
     public bool IsRemainder { get; private set; }
+    public ReadMode ReadMode { get; private set; }
 
     public IReadOnlyList<Attribute> Attributes => _attributes;
     public IReadOnlyList<string> Aliases => _aliases;
@@ -30,11 +32,10 @@ public class ParameterInfo
     public static ParameterInfo CreateParameterInfo(System.Reflection.ParameterInfo parameter, CommandInfo command)
     {
         var parameterType = parameter.ParameterType;
-        if (parameterType != typeof(string) &&
-            !parameterType.ImplementsIConvertible())
+        if (!parameterType.IsConvertibleOrParsable(out var readMode))
         {
-            throw new ArgumentException("Command parameter type must be string or implement IConvertible interface",
-                parameter.Name);
+            throw new CommandException(
+                $"Command parameter type must be string or implement IConvertible or ISpanParsable<> interface. Parameter '{parameter.Name}'");
         }
 
         var parameterInfo = new ParameterInfo
@@ -43,7 +44,8 @@ public class ParameterInfo
             Command = command,
             IsOptional = parameter.IsOptional,
             DefaultValue = parameter.DefaultValue,
-            Name = parameter.Name ?? string.Empty
+            Name = parameter.Name ?? string.Empty,
+            ReadMode = readMode
         };
 
         var attributes = parameter.GetCustomAttributes().ToImmutableArray();
@@ -81,3 +83,4 @@ public class ParameterInfo
         return parameterInfo;
     }
 }
+

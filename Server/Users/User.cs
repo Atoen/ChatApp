@@ -13,9 +13,9 @@ public class User : IEquatable<User>
         UidString = uid.ToString();
     }
 
-    public static bool operator ==(User first, User second)
+    public static bool operator ==(User? first, User? second)
     {
-        return first.Username == second.Username && first.Uid == second.Uid;
+        return first?.Username == second?.Username && first?.Uid == second?.Uid;
     }
 
     public static bool operator !=(User first, User second) => !(first == second);

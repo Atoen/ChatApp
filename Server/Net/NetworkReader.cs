@@ -9,10 +9,13 @@ namespace Server.Net;
 public class NetworkReader : BinaryReader
 {
     private readonly NetworkStream _stream;
+    private readonly JsonSerializerOptions _serializerOptions = new();
+    private readonly SemaphoreSlim _semaphore = new(1);
 
     public NetworkReader(NetworkStream stream) : base(stream, Encoding.Unicode, true)
     {
         _stream = stream;
+        _serializerOptions.AddContext<SourceGenerationContext>();
     }
 
     public async Task<Packet> ReadPacketAsync() => await ReadAsync<Packet>().ConfigureAwait(false);
@@ -21,20 +24,29 @@ public class NetworkReader : BinaryReader
 
     private async Task<T> ReadAsync<T>()
     {
-        var length = Read7BitEncodedInt();
-        var buffer = ArrayPool<byte>.Shared.Rent(length);
+        await _semaphore.WaitAsync();
 
-        var read = await _stream.ReadAsync(buffer.AsMemory()[..length]).ConfigureAwait(false);
-
-        if (read != length)
+        try
         {
-            throw new InvalidOperationException("Could not read data from the network stream.");
+            var length = Read7BitEncodedInt();
+            var buffer = ArrayPool<byte>.Shared.Rent(length);
+
+            var read = await _stream.ReadAsync(buffer.AsMemory()[..length]).ConfigureAwait(false);
+
+            if (read != length)
+            {
+                throw new InvalidOperationException("Could not read data from the network stream.");
+            }
+
+            var data = JsonSerializer.Deserialize<T>(buffer.AsSpan()[..length], _serializerOptions);
+
+            ArrayPool<byte>.Shared.Return(buffer);
+
+            return data!;
         }
-
-        var data = JsonSerializer.Deserialize<T>(buffer.AsSpan()[..length]);
-
-        ArrayPool<byte>.Shared.Return(buffer);
-
-        return data!;
+        finally
+        {
+            _semaphore.Release();
+        }
     }
 }

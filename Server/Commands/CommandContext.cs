@@ -5,14 +5,14 @@ namespace Server.Commands;
 
 public readonly struct CommandContext
 {
-    public CommandContext(TcpUser user, params string[] args)
+    public CommandContext(TcpUser user, params object[] args)
     {
         User = user;
         Args = args;
     }
 
     public TcpUser User { get; }
-    public string[] Args { get; }
+    public object[] Args { get; }
 
     public async Task RespondAsync(string message)
     {

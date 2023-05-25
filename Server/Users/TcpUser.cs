@@ -8,11 +8,12 @@ namespace Server.Users;
 public sealed class TcpUser : User, IDisposable
 {
     public ITcpServer Server { get; }
+    public TcpClient Client { get; }
 
     public TcpUser(ITcpServer server, TcpClient client, Func<Packet, TcpUser, Task> callback, string username, Guid uid) : base(username, uid)
     {
         Server = server;
-        _client = client;
+        Client = client;
         _callback = callback;
 
         var stream = client.GetStream();
@@ -22,13 +23,12 @@ public sealed class TcpUser : User, IDisposable
     }
     
     private readonly Func<Packet, TcpUser, Task> _callback;
-    private readonly TcpClient _client;
     private readonly NetworkReader _reader;
     private readonly NetworkWriter _writer;
     
     public async Task Listen()
     {
-        while (_client.Connected)
+        while (Client.Connected)
         {
             await ProcessPacket().ConfigureAwait(false);
         }
@@ -43,8 +43,9 @@ public sealed class TcpUser : User, IDisposable
         }
         catch (Exception e)
         {
-            Log.Error("Error while processing user packet: {Error}", e.Message);
-            await WritePacketAsync(new Packet(OpCode.Error, e.Message)).ConfigureAwait(false);
+            Log.Warning("Error while processing user packet: {Error}", e.Message);
+
+            await Server.DisconnectUserOnError(this);
         }
     }
 
@@ -54,7 +55,7 @@ public sealed class TcpUser : User, IDisposable
 
     public async Task WriteMessageAsync(Message message)
     {
-        var header = new Packet(OpCode.SendMessage);
+        var header = new Packet(OpCode.TransferMessage);
 
         await _writer.WritePacketAsync(header).ConfigureAwait(false);
         await _writer.WriteMessageAsync(message).ConfigureAwait(false);
@@ -62,7 +63,7 @@ public sealed class TcpUser : User, IDisposable
 
     public void Dispose()
     {
-        _client.Close();
+        Client.Client.Shutdown(SocketShutdown.Both);
         _reader.Dispose();
         _writer.Dispose();
     }

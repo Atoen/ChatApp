@@ -1,4 +1,4 @@
-﻿namespace WpfClient.Model;
+﻿namespace WpfClient.Models;
 
 public class User
 {

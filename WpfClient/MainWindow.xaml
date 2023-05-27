@@ -4,7 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WpfClient"
-        xmlns:userControls="clr-namespace:WpfClient.View.UserControls"
+        xmlns:userControls="clr-namespace:WpfClient.Views.UserControls"
         mc:Ignorable="d" WindowStyle="None" Background="#333333"
         Title="MainWindow" Height="450" Width="800">
 
@@ -17,23 +17,22 @@
             <RowDefinition Height="Auto" />
             <RowDefinition />
         </Grid.RowDefinitions>
-        
+
         <userControls:TitleBar Grid.ColumnSpan="2"
                                MouseLeftButtonDown="UIElement_OnMouseLeftButtonDown" />
-        
+
         <Grid Grid.Column="0" Grid.Row="1" Background="#424242">
-            
+
             <Grid.RowDefinitions>
-                <RowDefinition/>
-                <RowDefinition Height="100"/>
+                <RowDefinition />
+                <RowDefinition Height="100" />
             </Grid.RowDefinitions>
-            
-            <ListView Background="Transparent" BorderBrush="Transparent"/>
-            
+
+            <ListView Background="Transparent" BorderBrush="Transparent" />
+
             <TextBox Grid.Row="1" Text="Type message" VerticalAlignment="Stretch"
                      VerticalContentAlignment="Center" HorizontalAlignment="Stretch"
-                     Background="Gray" TextWrapping="Wrap" BorderThickness="0"
-                     >
+                     Background="WhiteSmoke" TextWrapping="Wrap" BorderThickness="0">
             </TextBox>
         </Grid>
     </Grid>

@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace WpfClient.Model;
+namespace WpfClient.Models;
 
 public class Message
 {

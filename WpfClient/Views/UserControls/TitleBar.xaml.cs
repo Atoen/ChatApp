@@ -1,6 +1,7 @@
 ﻿using System.Windows;
+using System.Windows.Input;
 
-namespace WpfClient.View.UserControls;
+namespace WpfClient.Views.UserControls;
 
 public partial class TitleBar
 {
@@ -17,11 +18,13 @@ public partial class TitleBar
         {
             MaximizeButton.Content = "🗖";
             window.WindowState = WindowState.Normal;
+            window.BorderThickness = new Thickness(0);
         }
         else
         {
             window.WindowState = WindowState.Maximized;
             MaximizeButton.Content = "🗗";
+            window.BorderThickness = new Thickness(8);
         }
     }
 
@@ -33,5 +36,13 @@ public partial class TitleBar
     private void CloseButton_OnClick(object sender, RoutedEventArgs e)
     {
         Window.GetWindow(this)!.Close();
+    }
+
+    private void TitleBar_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount == 2)
+        {
+            MaximizeButton_OnClick(sender, e);
+        }
     }
 }

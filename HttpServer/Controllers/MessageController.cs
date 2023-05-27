@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using FluentValidation;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -14,41 +15,28 @@ namespace HttpServer.Controllers
     public class MessageController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly IValidator<Message> _messageValidator;
 
-        public MessageController(AppDbContext context)
+        public MessageController(AppDbContext context, IValidator<Message> messageValidator)
         {
             _context = context;
+            _messageValidator = messageValidator;
         }
 
-        // GET: api/Message
+        // GET: api/Message?id=5
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Message>>> GetMessages()
+        public async Task<ActionResult<IEnumerable<Message>>> GetMessagesByUser([FromQuery] Guid authorId)
         {
-            if (_context.Messages == null)
+            var messages = await _context.Messages
+                .Where(m => m.Author != null && m.Author.Id == authorId)
+                .ToListAsync();
+
+            if (messages.Count == 0)
             {
                 return NotFound();
             }
 
-            return await _context.Messages.ToListAsync();
-        }
-
-        // GET: api/Message/5
-        [HttpGet("{id}")]
-        public async Task<ActionResult<Message>> GetMessage(DateTimeOffset id)
-        {
-            if (_context.Messages == null)
-            {
-                return NotFound();
-            }
-
-            var message = await _context.Messages.FindAsync(id);
-
-            if (message == null)
-            {
-                return NotFound();
-            }
-
-            return message;
+            return messages;
         }
 
         // POST: api/Message
@@ -56,32 +44,16 @@ namespace HttpServer.Controllers
         [HttpPost]
         public async Task<ActionResult<Message>> PostMessage(Message message)
         {
-            if (_context.Messages == null)
+            var validationResult = await _messageValidator.ValidateAsync(message);
+            if (!validationResult.IsValid)
             {
-                return Problem("Entity set 'AppDbContext.Messages'  is null.");
+                return BadRequest(validationResult.Errors);
             }
 
             _context.Messages.Add(message);
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateException)
-            {
-                if (MessageExists(message.Id))
-                {
-                    return Conflict();
-                }
-
-                throw;
-            }
-
-            return CreatedAtAction("GetMessage", new {id = message.Id}, message);
-        }
-
-        private bool MessageExists(DateTimeOffset id)
-        {
-            return (_context.Messages?.Any(e => e.Id == id)).GetValueOrDefault();
+            await _context.SaveChangesAsync();
+            
+            return Ok();
         }
     }
 }

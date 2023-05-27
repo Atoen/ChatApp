@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using FluentValidation;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,10 +16,12 @@ namespace HttpServer.Controllers
     public class UserController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly IValidator<string> _usernameValidator;
 
-        public UserController(AppDbContext context)
+        public UserController(AppDbContext context, IValidator<string> usernameValidator)
         {
             _context = context;
+            _usernameValidator = usernameValidator;
         }
 
         // GET: api/User
@@ -34,7 +37,7 @@ namespace HttpServer.Controllers
         }
 
         // GET: api/User/5
-        [HttpGet("{id}")]
+        [HttpGet("{id:guid}")]
         public async Task<ActionResult<User>> GetUser(Guid id)
         {
             if (_context.Users == null)
@@ -52,12 +55,14 @@ namespace HttpServer.Controllers
             return user;
         }
 
-        [HttpPost("username")]
-        public async Task<ActionResult<User>> PostUser([FromBody] string username)
+        [HttpPost]
+        public async Task<ActionResult<User>> PostUser(string username)
         {
-            if (_context.Users == null)
+            var validationResult = await _usernameValidator.ValidateAsync(username);
+
+            if (!validationResult.IsValid)
             {
-                return Problem("Entity set 'AppDbContext.Users'  is null.");
+                return BadRequest(validationResult.Errors);
             }
 
             if (_context.Users.Any(x => x.Username == username))
@@ -86,7 +91,7 @@ namespace HttpServer.Controllers
                 throw;
             }
             
-            return CreatedAtAction(nameof(PostUser), new {id = user.Id}, user);
+            return Ok(user);
         }
 
         private bool UserExists(Guid id)

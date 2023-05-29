@@ -1,39 +1,15 @@
-﻿using Microsoft.AspNetCore.SignalR;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.SignalR;
 
 namespace HttpServer.Hubs;
 
+[Authorize]
 public class ChatHub : Hub
 {
-    private readonly IUserManager _userManager; // Custom user manager to retrieve usernames
-
-    public ChatHub(IUserManager userManager)
+    public async Task SendMessage(string message)
     {
-        _userManager = userManager;
-    }
+        var user = Context.User?.Identity?.Name;
 
-    public override async Task OnConnectedAsync()
-    {
-        var username = await _userManager.GetUsernameByContextAsync(Context);
-
-        if (!string.IsNullOrEmpty(username))
-        {
-            // Notify clients that a user has joined with the username
-            await Clients.All.SendAsync("UserJoined", username);
-        }
-
-        await base.OnConnectedAsync();
-    }
-
-    public override async Task OnDisconnectedAsync(Exception? exception)
-    {
-        var username = await _userManager.GetUsernameByContextAsync(Context) ?? "Małe oro";
-
-        if (!string.IsNullOrEmpty(username))
-        {
-            // Notify clients that a user has left with the username
-            await Clients.All.SendAsync("UserLeft", username);
-        }
-
-        await base.OnDisconnectedAsync(exception);
+        await Clients.All.SendAsync("ReceiveMessage", user, message);
     }
 }

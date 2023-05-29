@@ -22,7 +22,6 @@ namespace HttpServer.Controllers
             _context = context;
             _messageValidator = messageValidator;
         }
-
         // GET: api/Message?id=5
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Message>>> GetMessagesByUser([FromQuery] Guid authorId)

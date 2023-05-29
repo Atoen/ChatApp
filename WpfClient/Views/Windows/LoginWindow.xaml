@@ -5,49 +5,65 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:local="clr-namespace:WpfClient.Views.Windows"
         xmlns:userControls="clr-namespace:WpfClient.Views.UserControls"
+        xmlns:viewModels="clr-namespace:WpfClient.ViewModels"
         mc:Ignorable="d" Background="#333333"
         Title="LoginWindow" Height="350" Width="650"
         WindowStyle="None" ResizeMode="NoResize">
-    
+
     <WindowChrome.WindowChrome>
         <WindowChrome GlassFrameThickness="0" CornerRadius="0" CaptionHeight="0" />
     </WindowChrome.WindowChrome>
-    
+
+    <Window.DataContext>
+        <viewModels:LoginWindowViewModel />
+    </Window.DataContext>
+
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="2*"/>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="2*" />
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="1.5*"/>
-            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="1.5*" />
+            <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        
+
         <userControls:TitleBar x:Name="TitleBar" Grid.ColumnSpan="2"
-                               MouseLeftButtonDown="UIElement_OnMouseLeftButtonDown" />
+                               MouseLeftButtonDown="Titlebar_OnMouseLeftButtonDown" />
 
-        <Label Grid.Column="0" Grid.Row="1" Content="Username" VerticalAlignment="Center" HorizontalAlignment="Right" Foreground="Azure"
-               FontSize="20" FontWeight="SemiBold" Padding="20 0"/>
-        <TextBox x:Name="UsernameBox" Grid.Column="1" Grid.Row="1" Height="40" Width="200" FontSize="18" VerticalContentAlignment="Center"/>
+        <Label Grid.Column="0" Grid.Row="1" Content="Username" VerticalAlignment="Center" HorizontalAlignment="Right"
+               Foreground="Azure"
+               FontSize="20" FontWeight="SemiBold" Padding="20 0" />
+        <TextBox Text="{Binding Username}"
+                 Grid.Column="1" Grid.Row="1" Height="40" Width="200" FontSize="18" VerticalContentAlignment="Center">
+        </TextBox>
 
-        <Label Grid.Column="0" Grid.Row="2" Content="Password" VerticalAlignment="Center" HorizontalAlignment="Right" Foreground="Azure"
-               FontSize="20" FontWeight="SemiBold" Padding="20 0"/>
-        <PasswordBox x:Name="PasswordBox" Grid.Column="1" Grid.Row="2" Height="40" Width="200" FontSize="18" VerticalContentAlignment="Center"/>
+        <Label Grid.Column="0" Grid.Row="2" Content="Password" VerticalAlignment="Center" HorizontalAlignment="Right"
+               Foreground="Azure"
+               FontSize="20" FontWeight="SemiBold" Padding="20 0" />
+        <PasswordBox x:Name="PasswordBox" Grid.Column="1" PasswordChanged="PasswordBox_OnPasswordChanged" Grid.Row="2"
+                     Height="40" Width="200" FontSize="18" VerticalContentAlignment="Center" />
+
+        <TextBlock Grid.Column="0" Grid.Row="3" Grid.ColumnSpan="2" Foreground="OrangeRed" Text="{Binding ErrorMessage}"
+                   FontSize="16" FontWeight="SemiBold"
+                   Width="400" Height="80" TextAlignment="Center" TextWrapping="Wrap" />
         
-        <TextBlock x:Name="ErrorTextBlock" Grid.Column="0" Grid.Row="3" Grid.ColumnSpan="2" Foreground="Red" Text="" FontSize="16" FontWeight="SemiBold"
-                   Width="400" Height="80" TextAlignment="Center" TextWrapping="Wrap"/>
-        
-        <StackPanel Grid.Column="0" Grid.Row="4" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Center">
+        <TextBlock Grid.Column="0" Grid.Row="3" Grid.ColumnSpan="2" Foreground="WhiteSmoke" Text="{Binding Message}"
+                   FontSize="16" FontWeight="SemiBold"
+                   Width="400" Height="80" TextAlignment="Center" TextWrapping="Wrap" />
+
+        <StackPanel Grid.Column="0" Grid.Row="4" Grid.ColumnSpan="2" Orientation="Horizontal"
+                    HorizontalAlignment="Center">
             <Button Content="Login" Width="80" Height="40" Background="Transparent" Margin="10 0"
                     BorderBrush="Transparent" FontSize="20" FontWeight="SemiBold" Foreground="Chartreuse"
-                    Click="LoginButton_OnClick"/>
+                    Command="{Binding LoginCommand}" />
             <Button Content="Signup" Width="80" Height="40" Background="Transparent" Margin="10 0"
                     BorderBrush="Transparent" FontSize="20" FontWeight="SemiBold" Foreground="Goldenrod"
-                    Click="SignupButton_OnClick"/>
+                    Command="{Binding SignupCommand}" />
         </StackPanel>
-        
+
     </Grid>
 </Window>

@@ -1,9 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using FluentValidation;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using HttpServer.Models;
@@ -24,10 +19,10 @@ namespace HttpServer.Controllers
         }
         // GET: api/Message?id=5
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Message>>> GetMessagesByUser([FromQuery] Guid authorId)
+        public async Task<ActionResult<IEnumerable<Message>>> GetMessagesByUser([FromQuery] string authorId)
         {
             var messages = await _context.Messages
-                .Where(m => m.Author != null && m.Author.Id == authorId)
+                .Where(x => x.Author.Id == authorId)
                 .ToListAsync();
 
             if (messages.Count == 0)

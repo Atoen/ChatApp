@@ -1,16 +1,11 @@
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
-using System.Text;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using HttpServer.Models;
 using HttpServer.Services;
-using Konscious.Security.Cryptography;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.IdentityModel.Tokens;
 
 namespace HttpServer.Controllers
 {
@@ -41,11 +36,6 @@ namespace HttpServer.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<User>>> GetUsers()
         {
-            if (_dbContext.Users == null)
-            {
-                return NotFound();
-            }
-
             return await _dbContext.Users.ToListAsync();
         }
         
@@ -124,7 +114,6 @@ namespace HttpServer.Controllers
             var user = new User
             {
                 Username = userDto.Username,
-                Id = Guid.NewGuid(),
                 PasswordHash = hash,
                 Salt = salt
             };
@@ -148,9 +137,9 @@ namespace HttpServer.Controllers
             return Ok();
         }
 
-        private bool UserExists(Guid id)
+        private bool UserExists(string id)
         {
-            return (_dbContext.Users?.Any(e => e.Id == id)).GetValueOrDefault();
+            return _dbContext.Users.Any(e => e.Id == id);
         }
     }
 }

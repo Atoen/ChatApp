@@ -6,12 +6,21 @@
         xmlns:local="clr-namespace:WpfClient"
         xmlns:userControls="clr-namespace:WpfClient.Views.UserControls"
         xmlns:viewModels="clr-namespace:WpfClient.ViewModels"
+        xmlns:views="clr-namespace:WpfClient.Views"
+        xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
+        xmlns:converters="clr-namespace:WpfClient.Converters"
         mc:Ignorable="d" WindowStyle="None" Background="#333333"
-        Title="MainWindow" Height="450" Width="800">
+        Title="MainWindow" Height="450" Width="800"
+        MinWidth="400" MinHeight="300">
 
     <WindowChrome.WindowChrome>
         <WindowChrome GlassFrameThickness="0" CornerRadius="0" CaptionHeight="0" />
     </WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <converters:DateTimeStringConverter x:Key="DateTimeConverter" />
+        <converters:UsernameTrimmer x:Key="UsernameTrimmer" />
+    </Window.Resources>
 
     <Window.DataContext>
         <viewModels:MainViewModel />
@@ -30,44 +39,123 @@
 
             <Grid.RowDefinitions>
                 <RowDefinition />
-                <RowDefinition Height="100" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="140"/>
-                <ColumnDefinition/>
+                <ColumnDefinition Width="140" />
+                <ColumnDefinition />
             </Grid.ColumnDefinitions>
-            
+
             <Rectangle Grid.Column="0" Grid.Row="0" Grid.RowSpan="2" Fill="#323232" />
-            
-            <StackPanel Grid.Column="0" Grid.Row="1" VerticalAlignment="Center" Orientation="Vertical">
-                <TextBlock Text="{Binding Username, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                       Foreground="White"
-                       FontWeight="SemiBold" 
-                       Margin="0 -5 0 -5"/>
-                <Label Content="Online"
-                       Foreground="Gray"
-                       FontWeight="SemiBold" 
-                       Margin="0 -8 0 -5"/>
+
+            <StackPanel Grid.Column="0" Grid.Row="0" Orientation="Vertical" Margin="5" HorizontalAlignment="Left">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Top">
+                    <TextBlock Text="Online Users -" FontSize="12" FontWeight="Bold" Foreground="DarkGray" Margin="5 0" />
+                    <TextBlock Text="{Binding OnlineUsers.Count}" FontSize="12" FontWeight="Bold" Foreground="DarkGray" />
+                </StackPanel>
+                <ListView Background="Transparent" BorderThickness="0"
+                          ItemsSource="{Binding OnlineUsers}">
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <TextBlock FontSize="16" Foreground="White"
+                                           Text="{Binding Converter={StaticResource UsernameTrimmer}, ConverterParameter=16}">
+                                    <TextBlock.ToolTip>
+                                        <ToolTip Content="{Binding}" />
+                                    </TextBlock.ToolTip>
+                                </TextBlock>
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+
             </StackPanel>
 
-            <ListView Grid.Column="1" Grid.Row="0" Background="Transparent" BorderBrush="Transparent" ItemsSource="{Binding Messages}">
+            <StackPanel Grid.Column="0" Grid.Row="1" VerticalAlignment="Center" Orientation="Vertical"
+                        HorizontalAlignment="Left" Margin="10">
+                <TextBlock Text="{Binding Username, Converter={StaticResource UsernameTrimmer}, ConverterParameter=16}"
+                           Foreground="White"
+                           FontWeight="SemiBold"
+                           FontSize="14"
+                           Margin="5 0 0 -5" />
+                <Label Content="{Binding ConnectionStatus}"
+                       Foreground="Gray"
+                       FontWeight="SemiBold"
+                       Margin="0 0 0 -5" />
+            </StackPanel>
+
+
+            <ListView Grid.Column="1" Grid.Row="0" Background="Transparent" BorderBrush="Transparent"
+                      ItemsSource="{Binding Messages}" x:Name="MessageListView">
                 <ListView.ItemTemplate>
                     <DataTemplate>
-                        <TextBlock Text="{Binding}" />
+                        <StackPanel Orientation="Vertical" HorizontalAlignment="Left">
+                            <StackPanel Orientation="Horizontal" Margin="0 0 0 0">
+                                <TextBlock Text="{Binding Author}" Foreground="Wheat" FontWeight="Bold" FontSize="16"
+                                           Margin="0 0 0 2">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsFirstMessage}" Value="False">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBlock
+                                    Text="{Binding TimeStamp.LocalDateTime, Converter={StaticResource DateTimeConverter}}"
+                                    Foreground="Gray" FontSize="12"
+                                    Padding="8 4 0 0">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsFirstMessage}" Value="False">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </StackPanel>
+                            <emoji:TextBlock Text="{Binding Content}" Foreground="White" FontSize="16"
+                                             Margin="0 -4 0 0" />
+                        </StackPanel>
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
 
-            <TextBox Grid.Column="1" x:Name="MessageBox" Grid.Row="1" VerticalAlignment="Stretch"
-                     VerticalContentAlignment="Center" HorizontalAlignment="Stretch"
-                     Background="WhiteSmoke" TextWrapping="Wrap" BorderThickness="0"
-                     Text="{Binding Message, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
-                <TextBox.InputBindings>
-                    <KeyBinding Command="{Binding SendCommand}" Key="Return"
-                                CommandParameter="{Binding ElementName=MessageBox, Path=Text}">
-                    </KeyBinding>
-                </TextBox.InputBindings>
-            </TextBox>
+            <Border Grid.Column="1" Grid.Row="1" CornerRadius="10" BorderThickness="5" Background="#525252">
+                <Grid>
+                    <TextBox x:Name="MessageBox" VerticalAlignment="Stretch" BorderThickness="0"
+                             VerticalContentAlignment="Center" HorizontalAlignment="Stretch"
+                             Background="#525252" TextWrapping="Wrap"
+                             Text="{Binding Message, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             FontStretch="Medium" Foreground="White" Margin="8 0" FontSize="14">
+                        <TextBox.InputBindings>
+                            <KeyBinding Command="{Binding SendCommand}" Key="Return"
+                                        CommandParameter="{Binding ElementName=MessageBox, Path=Text}" />
+                        </TextBox.InputBindings>
+                    </TextBox>
+                    <TextBlock IsHitTestVisible="False" Text="Type message" VerticalAlignment="Center"
+                               HorizontalAlignment="Left"
+                               Foreground="DarkGray" Margin="10 0" FontSize="14">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Text, ElementName=MessageBox}" Value="">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Grid>
+            </Border>
+            
         </Grid>
     </Grid>
 </Window>

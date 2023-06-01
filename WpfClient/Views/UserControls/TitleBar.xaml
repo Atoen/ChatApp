@@ -6,20 +6,63 @@
              mc:Ignorable="d" Background="#252525" MouseLeftButtonDown="TitleBar_OnMouseLeftButtonDown"
              Height="40" d:DesignWidth="800">
 
-        <DockPanel>
-            <TextBlock  Text="SquadTalk" VerticalAlignment="Center" Margin="10"
-                        FontSize="18" FontWeight="Bold" Foreground="Wheat" DockPanel.Dock="Left"/>
-                
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" DockPanel.Dock="Right">
-                <Button x:Name="MinimizeButton" Content="🗕" Width="40" Height="40"
-                        Background="Transparent" BorderBrush="Transparent" Foreground="White"
-                        Click="MinimizeButton_OnClick" />
-                <Button x:Name="MaximizeButton" Content="🗖" Width="40" Height="40"
-                        Background="Transparent" BorderBrush="Transparent" Foreground="White"
-                        Click="MaximizeButton_OnClick" />
-                <Button x:Name="CloseButton" Content="🗙" Width="40" Height="40"
-                        Background="Transparent" BorderBrush="Transparent" Foreground="White"
-                        Click="CloseButton_OnClick" />
-            </StackPanel>
-        </DockPanel>
+    <UserControl.Resources>
+        <Style TargetType="Button" x:Key="ButtonStyle">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="#FF888888" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Width" Value="40" />
+            <Setter Property="Height" Value="40" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="0"
+                                CornerRadius="0">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="Gray" />
+                    <Setter Property="Foreground" Value="White" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="Gray" />
+                    <Setter Property="Foreground" Value="White" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="#363636" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style TargetType="Button" x:Key="CloseButtonStyle" BasedOn="{StaticResource ButtonStyle}">
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="Red"/>
+                    <Setter Property="Foreground" Value="White" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
+    <DockPanel>
+        <TextBlock Text="SquadTalk" VerticalAlignment="Center" Margin="10"
+                   FontSize="18" FontWeight="Bold" Foreground="Wheat" DockPanel.Dock="Left" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" DockPanel.Dock="Right">
+            <Button x:Name="MinimizeButton" Content="🗕"
+                    Style="{StaticResource ButtonStyle}"
+                    Click="MinimizeButton_OnClick" />
+            <Button x:Name="MaximizeButton" Content="🗖"
+                    Style="{StaticResource ButtonStyle}"
+                    Click="MaximizeButton_OnClick" />
+            <Button x:Name="CloseButton" Content="🗙"
+                    Style="{StaticResource CloseButtonStyle}"
+                    Click="CloseButton_OnClick" />
+        </StackPanel>
+    </DockPanel>
 </UserControl>

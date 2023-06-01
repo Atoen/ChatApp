@@ -4,11 +4,12 @@ namespace WpfClient.Models;
 
 public class Message
 {
-    public User Author { get; }
+    public string Author { get; }
     public string Content { get; }
     public DateTimeOffset TimeStamp { get; }
+    public bool IsFirstMessage { get; set; }
 
-    public Message(User author, string content)
+    public Message(string author, string content)
     {
         Author = author;
         Content = content;

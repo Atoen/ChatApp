@@ -1,5 +1,7 @@
-﻿using System.Threading.Tasks;
+﻿using System.Collections.ObjectModel;
+using System.Threading.Tasks;
 using System.Windows.Input;
+using WpfClient.Models;
 using WpfClient.ViewModels;
 
 namespace WpfClient.Views.Windows;
@@ -10,6 +12,11 @@ public partial class MainWindow
     {
         InitializeComponent();
         Title = "SquadTalk";
+
+        ((ObservableCollection<Message>) MessageListView.Items.SourceCollection).CollectionChanged += delegate
+        {
+            MessageListView.ScrollIntoView(MessageListView.Items[^1]);
+        };
 
         if (DataContext is MainViewModel viewModel)
         {

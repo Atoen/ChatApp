@@ -1,5 +1,4 @@
-﻿using System.Text;
-using FluentValidation;
+﻿using FluentValidation;
 using HttpServer.Models;
 
 namespace HttpServer.Validators;

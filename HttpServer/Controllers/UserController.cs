@@ -134,7 +134,11 @@ namespace HttpServer.Controllers
                 throw;
             }
             
-            return Ok();
+            var token = _tokenService.CreateTokenString(
+                new Claim(ClaimTypes.Name, user.Username),
+                new Claim(ClaimTypes.Role, "User"));
+
+            return Ok(token);
         }
 
         private bool UserExists(string id)

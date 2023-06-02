@@ -28,7 +28,8 @@ public partial class MainViewModel : ObservableObject
     private readonly Dispatcher _dispatcher;
     private HubConnection _connection = default!;
     private RestClient _restClient = default!;
-    
+    private readonly TimeSpan _firstMessageTimeSpan = TimeSpan.FromMinutes(5);
+
     public MainViewModel()
     {
         _dispatcher = Application.Current.Dispatcher;
@@ -43,7 +44,7 @@ public partial class MainViewModel : ObservableObject
         });
 
         _connection = new HubConnectionBuilder()
-            .WithUrl("https://squadtalk.azurewebsites.net/chat", options =>
+            .WithUrl($"{App.EndPointUri}/chat", options =>
             {
                 options.Headers["Authorization"] = $"Bearer {token}";
             })
@@ -118,7 +119,7 @@ public partial class MainViewModel : ObservableObject
                 
                 var lastMessage = Messages[^1];
                 if (message.Author != lastMessage.Author ||
-                    message.TimeStamp.Subtract(lastMessage.TimeStamp) > TimeSpan.FromMinutes(1))
+                    message.TimeStamp.Subtract(lastMessage.TimeStamp) > _firstMessageTimeSpan)
                 {
                     message.IsFirstMessage = true;
                 }

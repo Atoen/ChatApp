@@ -43,7 +43,7 @@
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="140" />
-                <ColumnDefinition />
+                <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
             <Rectangle Grid.Column="0" Grid.Row="0" Grid.RowSpan="2" Fill="#323232" />
@@ -84,15 +84,18 @@
                        Margin="0 0 0 -5" />
             </StackPanel>
 
-
             <ListView Grid.Column="1" Grid.Row="0" Background="Transparent" BorderBrush="Transparent"
+                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                      VirtualizingPanel.ScrollUnit="Pixel"
                       ItemsSource="{Binding Messages}" x:Name="MessageListView">
                 <ListView.ItemTemplate>
                     <DataTemplate>
                         <StackPanel Orientation="Vertical" HorizontalAlignment="Left">
                             <StackPanel Orientation="Horizontal" Margin="0 0 0 0">
-                                <TextBlock Text="{Binding Author}" Foreground="Wheat" FontWeight="Bold" FontSize="16"
-                                           Margin="0 0 0 2">
+                                <TextBlock Text="{Binding Author}" Foreground="Wheat" FontWeight="Bold"
+                                           FontSize="16"
+                                           Margin="0 0 0 0">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
                                             <Setter Property="Visibility" Value="Visible" />
@@ -107,7 +110,7 @@
                                 <TextBlock
                                     Text="{Binding TimeStamp.LocalDateTime, Converter={StaticResource DateTimeConverter}}"
                                     Foreground="Gray" FontSize="12"
-                                    Padding="8 4 0 0">
+                                    Padding="8 3 0 0">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
                                             <Setter Property="Visibility" Value="Visible" />
@@ -121,17 +124,28 @@
                                 </TextBlock>
                             </StackPanel>
                             <emoji:TextBlock Text="{Binding Content}" Foreground="White" FontSize="16"
-                                             Margin="0 -4 0 0" />
+                                       Margin="0 -2 0 0" TextWrapping="Wrap" />
                         </StackPanel>
                     </DataTemplate>
                 </ListView.ItemTemplate>
+                
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="Margin" Value="0,0,0,0" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsFirstMessage}" Value="True">
+                                <Setter Property="Margin" Value="0,6,0,0" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ListView.ItemContainerStyle>
             </ListView>
 
             <Border Grid.Column="1" Grid.Row="1" CornerRadius="10" BorderThickness="5" Background="#525252">
                 <Grid>
                     <TextBox x:Name="MessageBox" VerticalAlignment="Stretch" BorderThickness="0"
                              VerticalContentAlignment="Center" HorizontalAlignment="Stretch"
-                             Background="#525252" TextWrapping="Wrap"
+                             Background="#525252" TextWrapping="Wrap" AcceptsReturn="True" SpellCheck.IsEnabled="True"
                              Text="{Binding Message, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                              FontStretch="Medium" Foreground="White" Margin="8 0" FontSize="14">
                         <TextBox.InputBindings>
@@ -155,7 +169,7 @@
                     </TextBlock>
                 </Grid>
             </Border>
-            
+
         </Grid>
     </Grid>
 </Window>

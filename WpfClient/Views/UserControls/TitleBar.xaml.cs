@@ -40,7 +40,7 @@ public partial class TitleBar
 
     private void TitleBar_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.ClickCount == 2)
+        if (e.ClickCount == 2 && MaximizeButton.IsEnabled)
         {
             MaximizeButton_OnClick(sender, e);
         }

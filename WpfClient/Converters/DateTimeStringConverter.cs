@@ -12,12 +12,12 @@ public class DateTimeStringConverter : IValueConverter
 
         if (dateTime.Date == DateTime.Today)
         {
-            return $"Today {dateTime:HH:mm:ss}";
+            return $"Today {dateTime:HH:mm}";
         }
 
         if (dateTime.Date == DateTime.Today.AddDays(-1))
         {
-            return $"Yesterday {dateTime:HH:mm:ss}";
+            return $"Yesterday {dateTime:HH:mm}";
         }
             
         return dateTime.ToString("dd-MM-yyyy HH:mm:ss");

@@ -19,7 +19,7 @@ public partial class LoginWindowViewModel : ObservableObject
 {
     [ObservableProperty] private string _username = string.Empty;
     [ObservableProperty] private string _errorMessage = string.Empty;
-    [ObservableProperty] private string _message = string.Empty;
+    [ObservableProperty] private string _infoMessage = string.Empty;
     
     public string Password
     {
@@ -51,79 +51,62 @@ public partial class LoginWindowViewModel : ObservableObject
 
     public LoginWindowViewModel()
     {
-        LoginCommand = new AsyncRelayCommand(LoginAsync, () => !_workingNow);
-        SignupCommand = new AsyncRelayCommand(SignupAsync, () => !_workingNow);
-        _restClient = new RestClient(new RestClientOptions("https://squadtalk.azurewebsites.net/"));
+        LoginCommand = new AsyncRelayCommand(LoginAsync, () => !WorkingNow);
+        SignupCommand = new AsyncRelayCommand(SignupAsync, () => !WorkingNow);
+        _restClient = new RestClient(new RestClientOptions(App.EndPointUri));
     }
 
-    private bool _workingNow;
+    [ObservableProperty] private bool _workingNow;
     private string _password = string.Empty;
     private bool _passwordPlaceholderVisible = true;
-
+    
     private async Task LoginAsync(CancellationToken token = default)
     {
-        ErrorMessage = string.Empty;
-        Message = string.Empty;
-        
-        var isValid = ValidateInput();
-        if (!isValid) return;
-
-        _workingNow = true;
-        
-        var request = new RestRequest("api/user/login", Method.Post);
-        request.AddBody(new {Username, PasswordHash = await HashPasswordAsync()}, ContentType.Json);
-
-        try
-        {
-            var response = await _restClient.PostAsync(request, token);
-            if (response.StatusCode == HttpStatusCode.OK)
-            {
-                Message = "Logged in successfully";
-                var jwtToken = JsonSerializer.Deserialize<string>(response.Content!)!;
-
-                var currentWindow = Application.Current.MainWindow;
-                _restClient.Dispose();
-                
-                new MainWindow(jwtToken).Show();
-                currentWindow?.Close();
-            }
-        }
-        catch (HttpRequestException e)
-        {
-            ErrorMessage = e.StatusCode switch
-            {
-                HttpStatusCode.Unauthorized => "Invalid username or password",
-                _ => "Unable to connect to the server"
-            };
-        }
-        
-        _workingNow = false;
+        WorkingNow = true;
+        await AuthenticateAsync("api/user/login", "Logged in successfully", token);
+        WorkingNow = false;
     }
 
     private async Task SignupAsync(CancellationToken token = default)
     {
-        ErrorMessage = string.Empty;
-        Message = string.Empty;
+        WorkingNow = true;
+        await AuthenticateAsync("api/user/signup", "Signed up successfully", token);
+        WorkingNow = false;
+    }
+    
+    private void OpenMainWindow(string jwtToken)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(jwtToken);
         
-        var isValid = ValidateInput();
-        if (!isValid) return;
-        
-        _workingNow = true;
+        var currentWindow = Application.Current.MainWindow;
+        _restClient.Dispose();
 
-        var request = new RestRequest("api/user/signup", Method.Post);
-        request.AddBody(new {Username, PasswordHash = await HashPasswordAsync()}, ContentType.Json);
+        new MainWindow(jwtToken).Show();
+        currentWindow?.Close();
+    }
+
+    private async Task AuthenticateAsync(string endpoint, string successMessage, CancellationToken cancellationToken = default)
+    {
+        ErrorMessage = string.Empty;
+        InfoMessage = string.Empty;
+
+        if (!ValidateInput(out var error))
+        {
+            ErrorMessage = error;
+            return;
+        }
+
+        var request = new RestRequest(endpoint, Method.Post);
+        request.AddBody(new {Username, PasswordHash = await HashPasswordAsync()});
 
         try
         {
-            var response = await _restClient.PostAsync(request, token);
-            if (response.StatusCode == HttpStatusCode.OK)
+            var response = await _restClient.PostAsync(request, cancellationToken);
+            if (response.IsSuccessStatusCode)
             {
-                Message = "Signed up successfully";
-                await LoginAsync(token);
-            }
-            else
-            {
-                ErrorMessage = response.StatusCode.ToString();
+                InfoMessage = successMessage;
+                var jwtToken = JsonSerializer.Deserialize<string>(response.Content!);
+                OpenMainWindow(jwtToken!);
             }
         }
         catch (HttpRequestException e)
@@ -131,31 +114,33 @@ public partial class LoginWindowViewModel : ObservableObject
             ErrorMessage = e.StatusCode switch
             {
                 HttpStatusCode.Conflict => $"Username {Username} is already taken",
-                _ => "Unable to connect to the server"
+                HttpStatusCode.Unauthorized => "Invalid username or password",
+                null => "Unable to connect to the server",
+                _ => $"Server error: {e.StatusCode}"
             };
         }
-        
-        _workingNow = false;
     }
 
-    private bool ValidateInput()
+    private bool ValidateInput(out string error)
     {
+        error = string.Empty;
+        
         var username = Username.Trim();
         if (string.IsNullOrWhiteSpace(username))
         {
-            ErrorMessage = "Username must not be empty";
+            error = "Username must not be empty";
             return false;
         }
         
         if (username.Length is < 2 or > 32)
         {
-            ErrorMessage = "Username must be between 2 and 32 characters long";
+            error = "Username must be between 2 and 32 characters long";
             return false;
         }
         
         if (Password.Length is < 3 or > 64)
         {
-            ErrorMessage = "Password must be between 3 and 64 characters long";
+            error = "Password must be between 3 and 64 characters long";
             return false;
         }
         

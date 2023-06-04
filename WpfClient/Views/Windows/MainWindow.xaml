@@ -8,6 +8,7 @@
         xmlns:viewModels="clr-namespace:WpfClient.ViewModels"
         xmlns:views="clr-namespace:WpfClient.Views"
         xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
+        xmlns:fa="http://schemas.fontawesome.io/icons/"
         xmlns:converters="clr-namespace:WpfClient.Converters"
         mc:Ignorable="d" WindowStyle="None" Background="#333333"
         Title="MainWindow" Height="450" Width="800"
@@ -20,6 +21,29 @@
     <Window.Resources>
         <converters:DateTimeStringConverter x:Key="DateTimeConverter" />
         <converters:UsernameTrimmer x:Key="UsernameTrimmer" />
+        <Style TargetType="Button" x:Key="SendFileButtonStyle">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Foreground" Value="DarkGray" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="0"
+                                CornerRadius="0">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Foreground" Value="WhiteSmoke" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
     </Window.Resources>
 
     <Window.DataContext>
@@ -71,7 +95,7 @@
 
             </StackPanel>
 
-            <StackPanel Grid.Column="0" Grid.Row="1" VerticalAlignment="Center" Orientation="Vertical"
+            <StackPanel Grid.Column="0" Grid.Row="1" VerticalAlignment="Bottom" Orientation="Vertical"
                         HorizontalAlignment="Left" Margin="10">
                 <TextBlock Text="{Binding Username, Converter={StaticResource UsernameTrimmer}, ConverterParameter=16}"
                            Foreground="White"
@@ -94,8 +118,7 @@
                         <StackPanel Orientation="Vertical" HorizontalAlignment="Left">
                             <StackPanel Orientation="Horizontal" Margin="0 0 0 0">
                                 <TextBlock Text="{Binding Author}" Foreground="Wheat" FontWeight="Bold"
-                                           FontSize="16"
-                                           Margin="0 0 0 0">
+                                           FontSize="16" Margin="0 0 0 0">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
                                             <Setter Property="Visibility" Value="Visible" />
@@ -109,8 +132,7 @@
                                 </TextBlock>
                                 <TextBlock
                                     Text="{Binding TimeStamp.LocalDateTime, Converter={StaticResource DateTimeConverter}}"
-                                    Foreground="Gray" FontSize="12"
-                                    Padding="8 3 0 0">
+                                    Foreground="Gray" FontSize="12" Padding="8 3 0 0">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
                                             <Setter Property="Visibility" Value="Visible" />
@@ -123,12 +145,12 @@
                                     </TextBlock.Style>
                                 </TextBlock>
                             </StackPanel>
-                            <emoji:TextBlock Text="{Binding Content}" Foreground="White" FontSize="16"
-                                       Margin="0 -2 0 0" TextWrapping="Wrap" />
+
+                            <emoji:RichTextBox Text="{Binding Content}" Foreground="White" Background="Transparent"
+                                               BorderThickness="0" FontSize="16" Margin="-5 -2 0 0" IsReadOnly="True" />
                         </StackPanel>
                     </DataTemplate>
                 </ListView.ItemTemplate>
-                
                 <ListView.ItemContainerStyle>
                     <Style TargetType="ListViewItem">
                         <Setter Property="Margin" Value="0,0,0,0" />
@@ -143,7 +165,11 @@
 
             <Border Grid.Column="1" Grid.Row="1" CornerRadius="10" BorderThickness="5" Background="#525252">
                 <Grid>
-                    <TextBox x:Name="MessageBox" VerticalAlignment="Stretch" BorderThickness="0"
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="50" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox Grid.Column="0" x:Name="MessageBox" VerticalAlignment="Stretch" BorderThickness="0"
                              VerticalContentAlignment="Center" HorizontalAlignment="Stretch"
                              Background="#525252" TextWrapping="Wrap" AcceptsReturn="True" SpellCheck.IsEnabled="True"
                              Text="{Binding Message, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -153,7 +179,8 @@
                                         CommandParameter="{Binding ElementName=MessageBox, Path=Text}" />
                         </TextBox.InputBindings>
                     </TextBox>
-                    <TextBlock IsHitTestVisible="False" Text="Type message" VerticalAlignment="Center"
+                    <TextBlock Grid.Column="0" Grid.ColumnSpan="2" IsHitTestVisible="False" Text="Type message"
+                               VerticalAlignment="Center"
                                HorizontalAlignment="Left"
                                Foreground="DarkGray" Margin="10 0" FontSize="14">
                         <TextBlock.Style>
@@ -167,9 +194,19 @@
                             </Style>
                         </TextBlock.Style>
                     </TextBlock>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button BorderThickness="0" Margin="10 0"
+                                Command="{Binding SendFileCommand}"
+                                Style="{StaticResource SendFileButtonStyle}">
+                            <Button.Content>
+                                <fa:ImageAwesome Icon="FileText" Width="25"
+                                                 Foreground="{Binding Foreground,
+                                                 RelativeSource={RelativeSource AncestorType={x:Type Button}}}" />
+                            </Button.Content>
+                        </Button>
+                    </StackPanel>
                 </Grid>
             </Border>
-
         </Grid>
     </Grid>
 </Window>

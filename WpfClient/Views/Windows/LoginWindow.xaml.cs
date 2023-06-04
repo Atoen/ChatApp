@@ -13,7 +13,7 @@ public partial class LoginWindow : Window
             viewModel.Password = PasswordBox.Password;
         }
     }
-    
+
     public LoginWindow()
     {
         InitializeComponent();

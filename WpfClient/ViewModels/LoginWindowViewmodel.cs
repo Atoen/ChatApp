@@ -20,7 +20,7 @@ public partial class LoginWindowViewModel : ObservableObject
     [ObservableProperty] private string _username = string.Empty;
     [ObservableProperty] private string _errorMessage = string.Empty;
     [ObservableProperty] private string _infoMessage = string.Empty;
-    
+
     public string Password
     {
         get => _password;
@@ -59,7 +59,7 @@ public partial class LoginWindowViewModel : ObservableObject
     [ObservableProperty] private bool _workingNow;
     private string _password = string.Empty;
     private bool _passwordPlaceholderVisible = true;
-    
+
     private async Task LoginAsync(CancellationToken token = default)
     {
         WorkingNow = true;
@@ -73,7 +73,7 @@ public partial class LoginWindowViewModel : ObservableObject
         await AuthenticateAsync("api/user/signup", "Signed up successfully", token);
         WorkingNow = false;
     }
-    
+
     private void OpenMainWindow(string jwtToken)
     {
         ArgumentException.ThrowIfNullOrEmpty(jwtToken);
@@ -146,7 +146,7 @@ public partial class LoginWindowViewModel : ObservableObject
         
         return true;
     }
-    
+
     [SuppressMessage("ReSharper.DPA", "DPA0001: Memory allocation issues")]
     private async Task<string> HashPasswordAsync()
     {

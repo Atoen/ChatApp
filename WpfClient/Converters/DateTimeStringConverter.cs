@@ -19,8 +19,8 @@ public class DateTimeStringConverter : IValueConverter
         {
             return $"Yesterday {dateTime:HH:mm}";
         }
-            
-        return dateTime.ToString("dd-MM-yyyy HH:mm:ss");
+
+        return dateTime.ToString("dd-MM-yyyy HH:mm");
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

@@ -1,14 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IdentityModel.Tokens.Jwt;
+using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.Win32;
 using RestSharp;
 using RestSharp.Authenticators;
 using WpfClient.Models;
@@ -19,11 +25,12 @@ public partial class MainViewModel : ObservableObject
 {
     [ObservableProperty] private string _message = string.Empty;
 
-    [ObservableProperty] private ObservableCollection<Message> _messages = new();
+    [ObservableProperty] private ObservableCollection<Message> _messages = new(new[] {new Message("User", "Message") {IsFirstMessage = true}});
     [ObservableProperty] private ObservableCollection<string> _onlineUsers = new();
     [ObservableProperty] private string _username = "Username";
     [ObservableProperty] private string _connectionStatus = "Connecting";
     public IAsyncRelayCommand SendCommand { get; }
+    public IAsyncRelayCommand SendFileCommand { get; }
 
     private readonly Dispatcher _dispatcher;
     private HubConnection _connection = default!;
@@ -34,13 +41,15 @@ public partial class MainViewModel : ObservableObject
     {
         _dispatcher = Application.Current.Dispatcher;
         SendCommand = new AsyncRelayCommand(SendAsync, () => !string.IsNullOrWhiteSpace(Message));
+        SendFileCommand = new AsyncRelayCommand(SendFileAsync);
     }
 
     public void SetToken(string token)
     {
-        _restClient = new RestClient(options =>
+        _restClient = new RestClient(new RestClientOptions
         {
-            options.Authenticator = new JwtAuthenticator(token);
+            BaseUrl = new Uri(App.EndPointUri),
+            Authenticator = new JwtAuthenticator(token)
         });
 
         _connection = new HubConnectionBuilder()
@@ -79,20 +88,20 @@ public partial class MainViewModel : ObservableObject
             ConnectionStatus = "Reconnecting";
             return Task.CompletedTask;
         };
-        
+
         _connection.Reconnected += _ =>
         {
             ConnectionStatus = "Online";
             return Task.CompletedTask;
         };
-        
+
         _connection.Closed += async _ =>
         {
             ConnectionStatus = "Disconnected";
             await Task.Delay(TimeSpan.FromSeconds(5));
             await _connection.StartAsync();
         };
-        
+
         _connection.On<IEnumerable<string>>("GetConnectedUsers", users =>
         {
             _dispatcher.Invoke(() =>
@@ -116,18 +125,18 @@ public partial class MainViewModel : ObservableObject
                     Messages.Add(message);
                     return;
                 }
-                
+
                 var lastMessage = Messages[^1];
                 if (message.Author != lastMessage.Author ||
                     message.TimeStamp.Subtract(lastMessage.TimeStamp) > _firstMessageTimeSpan)
                 {
                     message.IsFirstMessage = true;
                 }
-                
+
                 Messages.Add(message);
             });
         });
-        
+
         _connection.On<string>("UserConnected", user =>
         {
             _dispatcher.Invoke(() => OnlineUsers.Add(user));
@@ -139,16 +148,75 @@ public partial class MainViewModel : ObservableObject
         });
     }
 
-    private async Task SendAsync()
+    private async Task SendAsync(CancellationToken token = default)
     {
         try
         {
-            await _connection.InvokeAsync("SendMessage", Message);
+            var message = Message;
             Message = string.Empty;
+            
+            await _connection.InvokeAsync("SendMessage", message, cancellationToken: token);
         }
         catch (Exception e)
         {
-            _dispatcher.Invoke(() => Messages.Add(new Message("System", e.Message)));
+            _dispatcher.Invoke(() => Messages.Add(new Message("System", e.Message)
+            {
+                IsFirstMessage = true
+            }));
+        }
+    }
+
+    private async Task SendFileAsync(CancellationToken token = default)
+    {
+        var fileDialog = new OpenFileDialog
+        {
+            Multiselect = false
+        };
+        if (fileDialog.ShowDialog() == false) return;
+        
+        var filePath = fileDialog.FileName;
+
+        var request = new RestRequest("api/File", Method.Post);
+        request.AddHeader("Content-Type", "multipart/form-data");
+        request.AddFile("file", filePath);
+
+        try
+        {
+            var response = await _restClient.ExecuteAsync(request, token);
+            if (response.IsSuccessStatusCode)
+            {
+                var uri = JsonSerializer.Deserialize<string>(response.Content!);
+                await SendFileDownloadUriAsync(uri!, token);
+            }
+            else
+            {
+                _dispatcher.Invoke(() => Messages.Add(new Message("System", "Could not upload the file.")
+                {
+                    IsFirstMessage = true
+                }));
+            }
+        }
+        catch (HttpRequestException e)
+        {
+            _dispatcher.Invoke(() => Messages.Add(new Message("System", e.Message)
+            {
+                IsFirstMessage = true
+            }));
+        }
+    }
+
+    private async Task SendFileDownloadUriAsync(string uri, CancellationToken token = default)
+    {
+        try
+        {
+            await _connection.InvokeAsync("SendMessage", uri, cancellationToken: token);
+        }
+        catch (Exception e)
+        {
+            _dispatcher.Invoke(() => Messages.Add(new Message("System", e.Message)
+            {
+                IsFirstMessage = true
+            }));
         }
     }
 }

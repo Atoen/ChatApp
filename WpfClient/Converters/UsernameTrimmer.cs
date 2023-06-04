@@ -11,7 +11,7 @@ public class UsernameTrimmer : IValueConverter
         if (value is string username)
         {
             var maxLength = System.Convert.ToInt32(parameter);
-            
+
             if (username.Length > maxLength)
             {
                 return $"{username[..(maxLength - 3)]}...";

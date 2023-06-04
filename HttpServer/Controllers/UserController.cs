@@ -1,149 +1,42 @@
-using System.Security.Claims;
-using System.Security.Cryptography;
-using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using HttpServer.Models;
 using HttpServer.Services;
-using Microsoft.AspNetCore.Authorization;
 
-namespace HttpServer.Controllers
+namespace HttpServer.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class UserController : ControllerBase
 {
-    [Route("api/[controller]")]
-    [ApiController]
-    public class UserController : ControllerBase
+    private readonly UserService _userService;
+
+    public UserController(UserService userService)
     {
-        private readonly AppDbContext _dbContext;
-        private readonly IValidator<UserDto> _userValidator;
-        private readonly ILogger<UserController> _logger;
-        private readonly IHashService _hashService;
-        private readonly JwtTokenService _tokenService;
+        _userService = userService;
+    }
 
-        public UserController(AppDbContext dbContext,
-            IValidator<UserDto> userValidator,
-            ILogger<UserController> logger,
-            IHashService hashService,
-            JwtTokenService jwtTokenService)
-        {
-            _dbContext = dbContext;
-            _userValidator = userValidator;
-            _logger = logger;
-            _hashService = hashService;
-            _tokenService = jwtTokenService;
-        }
+    [HttpPost("login")]
+    public async Task<ActionResult> LoginUser(UserDto userDto)
+    {
+        var result = await _userService.LoginAsync(userDto);
+        var response = result.Match<ActionResult>(
+            success => Ok(success.Value),
+            notFound => NotFound(),
+            unauthorized => Unauthorized());
 
-        // GET: api/User
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<User>>> GetUsers()
-        {
-            return await _dbContext.Users.ToListAsync();
-        }
-        
-        // GET: api/User/5
-        [HttpGet("{id:guid}")]
-        public async Task<ActionResult<User>> GetUser(Guid id)
-        {
-            var user = await _dbContext.Users.FindAsync(id);
+        return response;
+    }
 
-            if (user == null)
-            {
-                return NotFound();
-            }
+    [HttpPost("signup")]
+    public async Task<ActionResult> RegisterUser(UserDto userDto)
+    {
+        var result = await _userService.RegisterUser(userDto);
+        var response = result.Match<ActionResult>(
+            success => Ok(success.Value),
+            conflict => Conflict(),
+            validationError => BadRequest(validationError.Value),
+            internalError => Problem(internalError.Value));
 
-            return user;
-        }
-        
-        [HttpGet("isAvailable")]
-        public async Task<ActionResult<bool>> CheckUsernameAvailability([FromQuery] string username)
-        {
-            var userExists = await _dbContext.Users.AnyAsync(x => x.Username == username);
-
-            return !userExists;
-        }
-
-        [HttpPost("login")]
-        public async Task<ActionResult> LoginUser(UserDto userDto)
-        {
-            var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Username == userDto.Username);
-            
-            if (user is null)
-            {
-                return Unauthorized();
-            }
-
-            var salt = user.Salt;
-            var hash = await _hashService.HashAsync(userDto, salt);
-
-            if (hash != user.PasswordHash)
-            {
-                return Unauthorized();
-            }
-
-            var token = _tokenService.CreateTokenString(
-                new Claim(ClaimTypes.Name, user.Username),
-                new Claim(ClaimTypes.Role, "User"));
-
-            return Ok(token);
-        }
-        
-        [Authorize]
-        [HttpGet("protected")]
-        public IActionResult ProtectedEndpoint()
-        {
-            return Ok("Protected Resource");
-        }
-        
-        [HttpPost("signup")]
-        public async Task<ActionResult> RegisterUser(UserDto userDto)
-        {
-            var validationResult = await _userValidator.ValidateAsync(userDto);
-            
-            if (!validationResult.IsValid)
-            {
-                return BadRequest(validationResult.Errors);
-            }
-            
-            if (await _dbContext.Users.AnyAsync(x => x.Username == userDto.Username))
-            {
-                return Conflict("User with specified username already exists.");
-            }
-
-            var salt = RandomNumberGenerator.GetBytes(16);
-            var hash = await _hashService.HashAsync(userDto, salt);
-
-            var user = new User
-            {
-                Username = userDto.Username,
-                PasswordHash = hash,
-                Salt = salt
-            };
-            
-            await _dbContext.Users.AddAsync(user);
-            try
-            {
-                _logger.LogInformation("User '{User}' has registered", user.Username);
-                await _dbContext.SaveChangesAsync();
-            }
-            catch (DbUpdateException)
-            {
-                if (UserExists(user.Id))
-                {
-                    return Conflict();
-                }
-            
-                throw;
-            }
-            
-            var token = _tokenService.CreateTokenString(
-                new Claim(ClaimTypes.Name, user.Username),
-                new Claim(ClaimTypes.Role, "User"));
-
-            return Ok(token);
-        }
-
-        private bool UserExists(string id)
-        {
-            return _dbContext.Users.Any(e => e.Id == id);
-        }
+        return response;
     }
 }

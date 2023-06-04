@@ -1,11 +1,11 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿namespace HttpServer.Models;
 
-namespace HttpServer.Models;
-
-public class User : IdentityUser
+public class User
 {
-    public string Username { get; set; } = null!;
-    public byte[] Salt { get; set; } = null!;
+    public required string Username { get; set; } = null!;
+    public required byte[] Salt { get; set; } = null!;
+    public required string PasswordHash { get; set; } = null!;
+    public required Guid Id { get; set; }
 }
 
 public class UserDto

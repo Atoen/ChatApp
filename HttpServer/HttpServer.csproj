@@ -10,10 +10,12 @@
         <PackageReference Include="FluentValidation" Version="11.5.2" />
         <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="11.5.2" />
         <PackageReference Include="Konscious.Security.Cryptography.Argon2" Version="1.3.0" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="7.0.5" />
         <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="7.0.5" />
         <PackageReference Include="Microsoft.AspNetCore.Identity" Version="2.2.0" />
         <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="7.0.5" />
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="7.0.1" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="7.0.5" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="7.0.5" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="7.0.5" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="7.0.5" />
@@ -22,6 +24,9 @@
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
         <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="7.0.6" />
+        <PackageReference Include="Npgsql" Version="7.0.4" />
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="7.0.4" />
+        <PackageReference Include="OneOf" Version="3.0.243" />
         <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
     </ItemGroup>
 

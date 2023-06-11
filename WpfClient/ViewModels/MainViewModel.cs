@@ -1,12 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
+using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -17,7 +15,10 @@ using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Win32;
 using RestSharp;
 using RestSharp.Authenticators;
+using TusDotNetClient;
 using WpfClient.Models;
+using WpfClient.Views;
+using WpfClient.Views.UserControls;
 
 namespace WpfClient.ViewModels;
 
@@ -25,7 +26,7 @@ public partial class MainViewModel : ObservableObject
 {
     [ObservableProperty] private string _message = string.Empty;
 
-    [ObservableProperty] private ObservableCollection<Message> _messages = new(new[] {new Message("User", "Message") {IsFirstMessage = true}});
+    [ObservableProperty] private ObservableCollection<Message> _messages = new();
     [ObservableProperty] private ObservableCollection<string> _onlineUsers = new();
     [ObservableProperty] private string _username = "Username";
     [ObservableProperty] private string _connectionStatus = "Connecting";
@@ -35,6 +36,7 @@ public partial class MainViewModel : ObservableObject
     private readonly Dispatcher _dispatcher;
     private HubConnection _connection = default!;
     private RestClient _restClient = default!;
+    private readonly TusClient _tusClient = new();
     private readonly TimeSpan _firstMessageTimeSpan = TimeSpan.FromMinutes(5);
 
     public MainViewModel()
@@ -119,6 +121,8 @@ public partial class MainViewModel : ObservableObject
         {
             _dispatcher.Invoke(() =>
             {
+                message.ParseEmbedData();
+                
                 if (Messages.Count == 0)
                 {
                     message.IsFirstMessage = true;
@@ -128,7 +132,7 @@ public partial class MainViewModel : ObservableObject
 
                 var lastMessage = Messages[^1];
                 if (message.Author != lastMessage.Author ||
-                    message.TimeStamp.Subtract(lastMessage.TimeStamp) > _firstMessageTimeSpan)
+                    message.Timestamp.Subtract(lastMessage.Timestamp) > _firstMessageTimeSpan)
                 {
                     message.IsFirstMessage = true;
                 }
@@ -147,7 +151,7 @@ public partial class MainViewModel : ObservableObject
             _dispatcher.Invoke(() => OnlineUsers.Remove(user));
         });
     }
-
+    
     private async Task SendAsync(CancellationToken token = default)
     {
         try
@@ -159,12 +163,12 @@ public partial class MainViewModel : ObservableObject
         }
         catch (Exception e)
         {
-            _dispatcher.Invoke(() => Messages.Add(new Message("System", e.Message)
-            {
-                IsFirstMessage = true
-            }));
+            AddMessage(new("System", e.Message) {IsFirstMessage = true});
         }
     }
+
+    [ObservableProperty] private double _uploadProgress;
+    [ObservableProperty] private bool _isUploading;
 
     private async Task SendFileAsync(CancellationToken token = default)
     {
@@ -173,50 +177,71 @@ public partial class MainViewModel : ObservableObject
             Multiselect = false
         };
         if (fileDialog.ShowDialog() == false) return;
-        
-        var filePath = fileDialog.FileName;
 
-        var request = new RestRequest("api/File", Method.Post);
-        request.AddHeader("Content-Type", "multipart/form-data");
-        request.AddFile("file", filePath);
+        var fileInfo = new FileInfo(fileDialog.FileName);
+        var url = await _tusClient.CreateAsync($"{App.EndPointUri}/tus", fileInfo, ("name", fileInfo.Name));
+        var upload = _tusClient.UploadAsync(url, fileInfo, chunkSize:10, cancellationToken: token);
+
+        upload.Progressed += (transferred, total) => UploadProgress = (double) transferred / total;
 
         try
         {
-            var response = await _restClient.ExecuteAsync(request, token);
-            if (response.IsSuccessStatusCode)
-            {
-                var uri = JsonSerializer.Deserialize<string>(response.Content!);
-                await SendFileDownloadUriAsync(uri!, token);
-            }
-            else
-            {
-                _dispatcher.Invoke(() => Messages.Add(new Message("System", "Could not upload the file.")
-                {
-                    IsFirstMessage = true
-                }));
-            }
-        }
-        catch (HttpRequestException e)
-        {
-            _dispatcher.Invoke(() => Messages.Add(new Message("System", e.Message)
-            {
-                IsFirstMessage = true
-            }));
-        }
-    }
+            IsUploading = true;
+            var responses = await upload;
 
-    private async Task SendFileDownloadUriAsync(string uri, CancellationToken token = default)
-    {
-        try
-        {
-            await _connection.InvokeAsync("SendMessage", uri, cancellationToken: token);
+            var uri = responses[^1].Headers.First(x => x.Key == "Url").Value;
+            await SendFileEmbed(fileInfo,$"{App.EndPointUri}{uri}", token);
         }
         catch (Exception e)
         {
-            _dispatcher.Invoke(() => Messages.Add(new Message("System", e.Message)
+            AddMessage(new("System", e.Message) {IsFirstMessage = true});
+        }
+
+        IsUploading = false;
+    }
+
+    private async Task SendFileEmbed(FileInfo fileInfo, string uri, CancellationToken token = default)
+    {
+        try
+        {
+            var message = new Message(Username, string.Empty)
             {
-                IsFirstMessage = true
-            }));
+                Embed = CreateEmbed(fileInfo, uri)
+            };
+
+            await _connection.InvokeAsync("SendMessage2", message, cancellationToken: token);
+        }
+        catch (Exception e)
+        {
+            AddMessage(new("System", e.Message) {IsFirstMessage = true});
         }
     }
+
+    private Embed CreateEmbed(FileInfo file, string uri)
+    {
+        if (file.Extension.ToLower() is ".jpg" or ".jpeg" or ".png")
+        {
+            return new Embed
+            {
+                Type = EmbedType.Image,
+                EmbedData = new()
+                {
+                    {"Uri", uri}
+                }
+            };
+        }
+
+        return new Embed
+        {
+            Type = EmbedType.File,
+            EmbedData = new()
+            {
+                {"Uri", uri},
+                {"FileName", file.Name},
+                {"FileSize", file.Length.ToString()}
+            }
+        };
+    }
+
+    private void AddMessage(Message message) => _dispatcher.Invoke(() => Messages.Add(message));
 }

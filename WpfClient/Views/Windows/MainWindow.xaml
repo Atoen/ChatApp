@@ -21,10 +21,12 @@
     <Window.Resources>
         <converters:DateTimeStringConverter x:Key="DateTimeConverter" />
         <converters:UsernameTrimmer x:Key="UsernameTrimmer" />
+
         <Style TargetType="Button" x:Key="SendFileButtonStyle">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderBrush" Value="Transparent" />
             <Setter Property="Foreground" Value="DarkGray" />
+            <Setter Property="Visibility" Value="Visible" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -41,6 +43,27 @@
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Foreground" Value="WhiteSmoke" />
                 </Trigger>
+                <DataTrigger Binding="{Binding IsUploading}" Value="True">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style TargetType="ProgressBar" x:Key="UploadProgressBarStyle">
+            <Setter Property="Minimum" Value="0" />
+            <Setter Property="Maximum" Value="1" />
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Setter Property="Width" Value="80" />
+            <Setter Property="Height" Value="20" />
+            <Setter Property="Margin" Value="0 0 10 0" />
+            <Setter Property="Background" Value="#252525" />
+            <Setter Property="Value" Value="{Binding UploadProgress}" />
+            <Setter Property="Foreground" Value="Wheat" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsUploading}" Value="True">
+                    <Setter Property="Visibility" Value="Visible" />
+                </DataTrigger>
             </Style.Triggers>
         </Style>
 
@@ -116,6 +139,8 @@
                 <ListView.ItemTemplate>
                     <DataTemplate>
                         <StackPanel Orientation="Vertical" HorizontalAlignment="Left">
+
+                            <!-- Author and date -->
                             <StackPanel Orientation="Horizontal" Margin="0 0 0 0">
                                 <TextBlock Text="{Binding Author}" Foreground="Wheat" FontWeight="Bold"
                                            FontSize="16" Margin="0 0 0 0">
@@ -131,7 +156,7 @@
                                     </TextBlock.Style>
                                 </TextBlock>
                                 <TextBlock
-                                    Text="{Binding TimeStamp.LocalDateTime, Converter={StaticResource DateTimeConverter}}"
+                                    Text="{Binding Timestamp.LocalDateTime, Converter={StaticResource DateTimeConverter}}"
                                     Foreground="Gray" FontSize="12" Padding="8 3 0 0">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
@@ -146,8 +171,35 @@
                                 </TextBlock>
                             </StackPanel>
 
+                            <ContentControl Content="{Binding UiEmbed}">
+                                <ContentControl.ContentTemplate>
+                                    <DataTemplate>
+                                        <Grid VerticalAlignment="Top" HorizontalAlignment="Left">
+                                            <ContentControl Content="{Binding}">
+                                                <!-- <ContentControl.Resources> -->
+                                                <!--     <DataTemplate DataType="{x:Type userControls:FileEmbed}"> -->
+                                                <!--          -->
+                                                <!--     </DataTemplate> -->
+                                                <!-- </ContentControl.Resources> -->
+                                            </ContentControl>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ContentControl.ContentTemplate>
+                            </ContentControl>
+
                             <emoji:RichTextBox Text="{Binding Content}" Foreground="White" Background="Transparent"
-                                               BorderThickness="0" FontSize="16" Margin="-5 -2 0 0" IsReadOnly="True" />
+                                               BorderThickness="0" FontSize="16" Margin="-5 -2 0 0" IsReadOnly="True">
+                                <emoji:RichTextBox.Style>
+                                    <Style TargetType="emoji:RichTextBox">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Content}" Value="">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </emoji:RichTextBox.Style>
+                            </emoji:RichTextBox>
                         </StackPanel>
                     </DataTemplate>
                 </ListView.ItemTemplate>
@@ -167,7 +219,7 @@
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="50" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <TextBox Grid.Column="0" x:Name="MessageBox" VerticalAlignment="Stretch" BorderThickness="0"
                              VerticalContentAlignment="Center" HorizontalAlignment="Stretch"
@@ -204,6 +256,7 @@
                                                  RelativeSource={RelativeSource AncestorType={x:Type Button}}}" />
                             </Button.Content>
                         </Button>
+                        <ProgressBar Style="{StaticResource UploadProgressBarStyle}" />
                     </StackPanel>
                 </Grid>
             </Border>

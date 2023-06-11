@@ -18,6 +18,7 @@ public partial class LoginWindow : Window
     {
         InitializeComponent();
         TitleBar.MaximizeButton.IsEnabled = false;
+        Title = "SquadTalk";
     }
 
     private void Titlebar_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)

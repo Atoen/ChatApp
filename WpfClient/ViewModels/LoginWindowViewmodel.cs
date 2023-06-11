@@ -108,6 +108,10 @@ public partial class LoginWindowViewModel : ObservableObject
                 var jwtToken = JsonSerializer.Deserialize<string>(response.Content!);
                 OpenMainWindow(jwtToken!);
             }
+            else if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                ErrorMessage = $"User {Username} not found";
+            }
         }
         catch (HttpRequestException e)
         {

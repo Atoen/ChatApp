@@ -1,7 +1,9 @@
 ﻿using System.Net.Mime;
-using HttpServer.Services;
-using Microsoft.AspNetCore.Authorization;
+using System.Text;
 using Microsoft.AspNetCore.Mvc;
+using tusdotnet.Interfaces;
+using tusdotnet.Models;
+using tusdotnet.Stores;
 
 namespace HttpServer.Controllers;
 
@@ -9,51 +11,40 @@ namespace HttpServer.Controllers;
 [Route("api/[controller]")]
 public class FileController : ControllerBase
 {
-    private readonly FileService _fileService;
-
-    public FileController(FileService fileService)
-    {
-        _fileService = fileService;
-    }
-
-    [HttpPost, Authorize]
-    public async Task<ActionResult<string>> UploadFileAsync(IFormFile file)
-    {
-        if (file is not {Length: > 0})
-        {
-            return BadRequest();
-        }
-
-        var uniqueFilename = await _fileService.SaveFile(file);
-        var fileUri = Url.Action(nameof(DownloadFile), nameof(File), new {id = uniqueFilename}, Request.Scheme);
-
-        return Ok(fileUri);
-    }
-
     [HttpGet]
-    public async Task<IActionResult> DownloadFile([FromQuery] string id)
+    public async Task<ActionResult> DownloadFile([FromQuery] string id)
     {
-        if (string.IsNullOrEmpty(id))
+        var store = new TusDiskStore(@"D:\Tus\");
+
+        ITusFile file;
+        try
         {
-            return BadRequest("Invalid file id.");
+            file = await store.GetFileAsync(id, HttpContext.RequestAborted);
+        }
+        catch (TusStoreException e)
+        {
+            return BadRequest(e.Message);
         }
 
-        var result = await _fileService.GetFile(id);
-        var response =  result.Match<IActionResult>(
-            tuple =>
+        var metadata = await file.GetMetadataAsync(HttpContext.RequestAborted);
+
+        var contentType = metadata.TryGetValue("contentType", out var typeMeta)
+            ? typeMeta.GetString(Encoding.UTF8)
+            : "application/octet-stream";
+
+        if (metadata.TryGetValue("name", out var nameMeta))
+        {
+            var name = nameMeta.GetString(Encoding.UTF8);
+            var contentDisposition = new ContentDisposition
             {
-                var (name, content) = tuple;
-                var contentDisposition = new ContentDisposition
-                {
-                    FileName = name,
-                    Inline = false
-                };
+                FileName = name,
+                Inline = false
+            };
 
-                Response.Headers.Add("Content-Disposition", contentDisposition.ToString());
-                return File(content, "application/octet-stream");
-            },
-            notFound => NotFound());
+            Response.Headers.Add("Content-Disposition", contentDisposition.ToString());
+        }
 
-        return response;
+        var fileStream = await file.GetContentAsync(HttpContext.RequestAborted);
+        return File(fileStream, contentType);
     }
 }

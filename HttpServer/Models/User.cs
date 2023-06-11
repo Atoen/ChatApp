@@ -2,9 +2,9 @@
 
 public class User
 {
-    public required string Username { get; set; } = null!;
-    public required byte[] Salt { get; set; } = null!;
-    public required string PasswordHash { get; set; } = null!;
+    public required string Username { get; set; }
+    public required byte[] Salt { get; set; }
+    public required string PasswordHash { get; set; }
     public required Guid Id { get; set; }
 }
 

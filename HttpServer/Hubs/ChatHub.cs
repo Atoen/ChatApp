@@ -14,7 +14,7 @@ public class ChatHub : Hub<IChatClient>
     {
         var user = Context.User?.Identity?.Name!;
 
-        var message2 = new Message2
+        var message2 = new HubMessage
         {
             Author = user,
             Timestamp = DateTimeOffset.Now,
@@ -22,6 +22,14 @@ public class ChatHub : Hub<IChatClient>
         };
 
         await Clients.All.ReceiveMessage(message2);
+    }
+
+    public async Task SendMessage2(HubMessage message)
+    {
+        if (message.Author == Context.User?.Identity?.Name)
+        {
+            await Clients.All.ReceiveMessage(message);
+        }
     }
 
     public override async Task OnConnectedAsync()
@@ -33,8 +41,6 @@ public class ChatHub : Hub<IChatClient>
         var usernames = Users.Select(x => x.Key);
         await Clients.Caller.GetConnectedUsers(usernames);
         await Clients.Others.UserConnected(user);
-
-        await base.OnConnectedAsync();
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
@@ -44,6 +50,5 @@ public class ChatHub : Hub<IChatClient>
         Users.TryRemove(user, out _);
         
         await Clients.All.UserDisconnected(user);
-        await base.OnDisconnectedAsync(exception);
     }
 }

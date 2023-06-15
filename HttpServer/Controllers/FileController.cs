@@ -32,7 +32,7 @@ public class FileController : ControllerBase
             ? typeMeta.GetString(Encoding.UTF8)
             : "application/octet-stream";
 
-        if (metadata.TryGetValue("name", out var nameMeta))
+        if (metadata.TryGetValue("filename", out var nameMeta))
         {
             var name = nameMeta.GetString(Encoding.UTF8);
             var contentDisposition = new ContentDisposition

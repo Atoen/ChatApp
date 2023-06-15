@@ -7,7 +7,17 @@
              mc:Ignorable="d" Background="Transparent"
              d:DesignHeight="300" d:DesignWidth="300"
              MaxHeight="500" MaxWidth="700">
-    <Border CornerRadius="10" BorderThickness="5" Background="#323232">
-        <Image x:Name="Image" />
-    </Border>
+    <WrapPanel Name="Container">
+        <Image x:Name="Image" MouseLeftButtonUp="Image_OnMouseLeftButtonUp" Stretch="Uniform"
+               RenderOptions.BitmapScalingMode="HighQuality" Loaded="Image_OnLoaded"/>
+        <WrapPanel.OpacityMask>
+            <VisualBrush>
+                <VisualBrush.Visual>
+                    <Border Height="{Binding ElementName=Container, Path=ActualHeight}" 
+                            Width="{Binding ElementName=Container, Path=ActualWidth}"
+                            Background="White" CornerRadius="7" />
+                </VisualBrush.Visual>
+            </VisualBrush>
+        </WrapPanel.OpacityMask>
+    </WrapPanel>
 </UserControl>

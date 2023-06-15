@@ -4,10 +4,20 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:local="clr-namespace:WpfClient.Views.UserControls"
-             xmlns:gif="http://wpfanimatedgif.codeplex.com"
+             xmlns:gif="https://github.com/XamlAnimatedGif/XamlAnimatedGif"
              mc:Ignorable="d"
-             d:DesignHeight="300" d:DesignWidth="300">
-    <Border CornerRadius="10" BorderThickness="5" Background="#323232">
-        <Image x:Name="Image" />
-    </Border>
+             d:DesignHeight="300" d:DesignWidth="300"
+             MaxHeight="500" MaxWidth="700">
+    <WrapPanel Name="Container">
+        <Image x:Name="Image" MouseLeftButtonUp="Gif_OnMouseLeftButtonUp" Stretch="Uniform" />
+        <WrapPanel.OpacityMask>
+            <VisualBrush>
+                <VisualBrush.Visual>
+                    <Border Height="{Binding ElementName=Container, Path=ActualHeight}" 
+                            Width="{Binding ElementName=Container, Path=ActualWidth}"
+                            Background="White" CornerRadius="7" />
+                </VisualBrush.Visual>
+            </VisualBrush>
+        </WrapPanel.OpacityMask>
+    </WrapPanel>
 </UserControl>

@@ -1,6 +1,8 @@
-﻿using System.Collections.ObjectModel;
+﻿using System;
+using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using WpfClient.Models;
@@ -14,6 +16,8 @@ public partial class MainWindow
     {
         InitializeComponent();
         Title = "SquadTalk";
+        
+        MaxHeight = SystemParameters.MaximizedPrimaryScreenHeight;
 
         ((ObservableCollection<Message>) MessageListView.Items.SourceCollection).CollectionChanged += delegate(object? _, NotifyCollectionChangedEventArgs args)
         {
@@ -33,5 +37,19 @@ public partial class MainWindow
     private void Titlebar_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         DragMove();
+    }
+
+    private async void MessageBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.V || (Keyboard.Modifiers & ModifierKeys.Control) != ModifierKeys.Control) return;
+
+        if (!Clipboard.ContainsImage()) return;
+        
+        var command = ((MainViewModel) DataContext).PasteImageCommand;
+
+        if (command.CanExecute(null))
+        {
+            await command.ExecuteAsync(null);
+        }
     }
 }

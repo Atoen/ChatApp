@@ -55,6 +55,7 @@ public partial class FileEmbed : UserControl
             FileName = e.Uri.AbsoluteUri,
             UseShellExecute = true
         };
+        
         Process.Start(processStartInfo);
         e.Handled = true;
     }

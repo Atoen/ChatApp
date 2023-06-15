@@ -8,7 +8,7 @@
              xmlns:converters="clr-namespace:WpfClient.Converters"
              xmlns:userControls="clr-namespace:WpfClient.Views.UserControls"
              mc:Ignorable="d" Background="Transparent"
-             d:DesignHeight="80" d:DesignWidth="300">
+             d:DesignHeight="80">
 
     <UserControl.Resources>
         <converters:FileSizeConverter x:Key="FileSizeConverter" />
@@ -22,49 +22,46 @@
         </Style>
     </UserControl.Resources>
 
-    <Border CornerRadius="10" BorderThickness="5" Background="#323232">
-        <Grid>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10">
-                <fa:ImageAwesome Foreground="White" Height="50">
-                    <fa:ImageAwesome.Style>
-                        <Style TargetType="fa:ImageAwesome">
-                            <Setter Property="Icon" Value="File" />
-                            <Style.Triggers>
-                                <DataTrigger
-                                    Binding="{Binding RelativeSource={RelativeSource AncestorType={x:Type userControls:FileEmbed}}, Path=FileType}"
-                                    Value="Pdf">
-                                    <Setter Property="Icon" Value="FilePdfOutline" />
-                                </DataTrigger>
-                                <DataTrigger
-                                    Binding="{Binding RelativeSource={RelativeSource AncestorType={x:Type userControls:FileEmbed}}, Path=FileType}"
-                                    Value="Text">
-                                    <Setter Property="Icon" Value="FileText" />
-                                </DataTrigger>
-                                <DataTrigger
-                                    Binding="{Binding RelativeSource={RelativeSource AncestorType={x:Type userControls:FileEmbed}}, Path=FileType}"
-                                    Value="Archive">
-                                    <Setter Property="Icon" Value="FileZipOutline" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </fa:ImageAwesome.Style>
-                </fa:ImageAwesome>
+    <Border CornerRadius="7" BorderThickness="0" Background="#323232">
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10">
+            <fa:ImageAwesome Foreground="White" Height="50">
+                <fa:ImageAwesome.Style>
+                    <Style TargetType="fa:ImageAwesome">
+                        <Setter Property="Icon" Value="File" />
+                        <Style.Triggers>
+                            <DataTrigger
+                                Binding="{Binding RelativeSource={RelativeSource AncestorType={x:Type userControls:FileEmbed}}, Path=FileType}"
+                                Value="Pdf">
+                                <Setter Property="Icon" Value="FilePdfOutline" />
+                            </DataTrigger>
+                            <DataTrigger
+                                Binding="{Binding RelativeSource={RelativeSource AncestorType={x:Type userControls:FileEmbed}}, Path=FileType}"
+                                Value="Text">
+                                <Setter Property="Icon" Value="FileText" />
+                            </DataTrigger>
+                            <DataTrigger
+                                Binding="{Binding RelativeSource={RelativeSource AncestorType={x:Type userControls:FileEmbed}}, Path=FileType}"
+                                Value="Archive">
+                                <Setter Property="Icon" Value="FileZipOutline" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </fa:ImageAwesome.Style>
+            </fa:ImageAwesome>
 
-                <StackPanel Orientation="Vertical" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10 0 0 0">
-                    <TextBlock>
-                        <Hyperlink
-                            NavigateUri="{Binding RelativeSource={RelativeSource AncestorType={x:Type userControls:FileEmbed}}, Path=DownloadUrl}"
-                            RequestNavigate="Hyperlink_OnRequestNavigate" TextDecorations="" FontSize="16">
-                            <Run
-                                Text="{Binding RelativeSource={RelativeSource AncestorType={x:Type userControls:FileEmbed}}, Path=FileName}" />
-                        </Hyperlink>
-                    </TextBlock>
-                    <TextBlock
-                        Text="{Binding RelativeSource={RelativeSource AncestorType={x:Type userControls:FileEmbed}}, Path=FileSize,
-                        Converter={StaticResource FileSizeConverter}}"
-                        Foreground="DimGray" Margin="0 -2 0 0" />
-                </StackPanel>
+            <StackPanel Orientation="Vertical" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10 0 0 0">
+                <TextBlock>
+                    <Hyperlink
+                        NavigateUri="{Binding RelativeSource={RelativeSource AncestorType={x:Type userControls:FileEmbed}}, Path=DownloadUrl}"
+                        RequestNavigate="Hyperlink_OnRequestNavigate" TextDecorations="" FontSize="16">
+                        <Run Text="{Binding RelativeSource={RelativeSource AncestorType={x:Type userControls:FileEmbed}}, Path=FileName}" />
+                    </Hyperlink>
+                </TextBlock>
+                <TextBlock
+                    Text="{Binding RelativeSource={RelativeSource AncestorType={x:Type userControls:FileEmbed}}, Path=FileSize, 
+                    Converter={StaticResource FileSizeConverter}}"
+                    Foreground="DimGray" />
             </StackPanel>
-        </Grid>
+        </StackPanel>
     </Border>
 </UserControl>

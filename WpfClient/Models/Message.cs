@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using System.Windows;
-using WpfClient.Views;
+using RestSharp;
 using WpfClient.Views.UserControls;
 
 namespace WpfClient.Models;
@@ -22,7 +23,7 @@ public class Message
         Timestamp = DateTimeOffset.Now;
     }
 
-    public void ParseEmbedData()
+    public void ParseEmbedData(RestClient client)
     {
         if (Embed is {Type: EmbedType.Image})
         {
@@ -38,17 +39,37 @@ public class Message
             {
                 FileType = FileType.Default,
                 DownloadUrl = Embed["Uri"],
-                FileName = Embed["FileName"],
+                FileName = Embed["Filename"],
                 FileSize = long.Parse(Embed["FileSize"])
             };
         }
         
-        else if (Content.StartsWith("https://tenor.com/"))
+        else if (Content.StartsWith("https://media.tenor.com/") || Content.StartsWith("https://media.giphy.com/")
+                 && Uri.IsWellFormedUriString(Content, UriKind.Absolute))
         {
+            if (!VerifyGifSource(Content, client)) return;
+            
+            Embed = new Embed {Type = EmbedType.Gif};
             UiEmbed = new GifEmbed
             {
-                ImageSource = Content
+                GifSource = Content
             };
+        }
+    }
+
+    private bool VerifyGifSource(string source, RestClient client)
+    {
+        var request = new RestRequest(source, Method.Head);
+
+        try
+        {
+            var response = client.Head(request);
+
+            return response.IsSuccessStatusCode;
+        }
+        catch
+        {
+            return false;
         }
     }
 }

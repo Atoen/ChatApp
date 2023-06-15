@@ -1,34 +1,33 @@
 ﻿using System;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Media.Imaging;
-using WpfAnimatedGif;
+using System.Windows.Input;
+using WpfClient.Views.Windows;
+using XamlAnimatedGif;
 
 namespace WpfClient.Views.UserControls;
 
-public partial class GifEmbed : UserControl
+public partial class GifEmbed
 {
     public GifEmbed()
     {
         InitializeComponent();
     }
     
-    public static readonly DependencyProperty ImageSourceProperty = DependencyProperty.Register(
-        nameof(ImageSource), typeof(string), typeof(ImageEmbed), new PropertyMetadata(default(string)));
+    public static readonly DependencyProperty GifSourceProperty = DependencyProperty.Register(
+        nameof(GifSource), typeof(string), typeof(ImageEmbed), new PropertyMetadata(default(string)));
 
-    public string ImageSource
+    public string GifSource
     {
-        get => (string) GetValue(ImageSourceProperty);
+        get => (string) GetValue(GifSourceProperty);
         set
         {
-            SetValue(ImageSourceProperty, value);
-
-            var image = new BitmapImage();
-            image.BeginInit();
-            image.UriSource = new Uri(ImageSource);
-            image.EndInit();
-
-            ImageBehavior.SetAnimatedSource(Image, image);
+            SetValue(GifSourceProperty, value);
+            AnimationBehavior.SetSourceUri(Image, new Uri(GifSource));
         }
+    }
+
+    private void Gif_OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        new ImageOverlayWindow(GifSource, Window.GetWindow(this)!).Show();
     }
 }

@@ -116,14 +116,15 @@
             <ListView Grid.Column="1" Grid.Row="0" Background="Transparent" BorderBrush="Transparent"
                       HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                       ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                      VirtualizingPanel.ScrollUnit="Pixel"
+                      ScrollViewer.ScrollChanged="MessageListView_OnScrollChanged"
+                      VirtualizingPanel.ScrollUnit="Pixel" 
                       ItemsSource="{Binding Messages}" x:Name="MessageListView">
                 <ListView.ItemTemplate>
                     <DataTemplate>
                         <StackPanel Orientation="Vertical" HorizontalAlignment="Left">
                             
                             <StackPanel Orientation="Horizontal" Margin="0 0 0 0">
-                                <TextBlock Text="{Binding Author}" Foreground="Wheat" FontWeight="Bold"
+                                <TextBlock Text="{Binding Author.Username}" Foreground="Wheat" FontWeight="Bold"
                                            FontSize="16" Margin="0 0 0 0"
                                            Visibility="{Binding Converter={StaticResource MessageAuthorDateVisibilityConverter}}">
                                 </TextBlock>
@@ -164,7 +165,7 @@
                     <TextBox Grid.Column="0" x:Name="MessageBox" VerticalAlignment="Stretch" BorderThickness="0"
                              VerticalContentAlignment="Center" HorizontalAlignment="Stretch"
                              Background="#525252" TextWrapping="Wrap" AcceptsReturn="True" SpellCheck.IsEnabled="True"
-                             Text="{Binding Message, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             Text="{Binding UserMessage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                              FontStretch="Medium" Foreground="White" Margin="8 0" FontSize="14"
                              PreviewKeyDown="MessageBox_OnPreviewKeyDown">
                         <TextBox.InputBindings>

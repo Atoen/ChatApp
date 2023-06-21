@@ -1,15 +1,41 @@
-﻿namespace WpfClient.Models;
+﻿using System;
 
-public class User
+namespace WpfClient.Models;
+
+public class User : IEquatable<User>
 {
-    public string Username { get; }
-    public string ImageSource { get; }
+    public required string Username { get; init; }
+    public required Guid Id { get; init; }
 
-    public User(string username)
+    public bool Equals(User? other)
     {
-        Username = username;
-        ImageSource =
-            "https://preview.redd.it/htasxv8oxima1.jpg?width=640&crop=smart&auto=webp&v=enabled&s=491815e7f0d75b333136472c023bb0bc2f4561fa";
+        return Username == other?.Username;
     }
 
+    public override bool Equals(object? obj)
+    {
+        if (ReferenceEquals(null, obj)) return false;
+        if (ReferenceEquals(this, obj)) return true;
+        if (obj.GetType() != GetType()) return false;
+        return Equals((User) obj);
+    }
+
+    public override int GetHashCode()
+    {
+        return Username.GetHashCode();
+    }
+
+    public static User System { get; } = new() {Username = "System", Id = Guid.Empty};
+
+    public static bool operator == (User? first, User? second)
+    {
+        if (first is null || second is null) return false;
+
+        return first.Username == second.Username;
+    }
+
+    public static bool operator !=(User? first, User? second)
+    {
+        return !(first == second);
+    }
 }

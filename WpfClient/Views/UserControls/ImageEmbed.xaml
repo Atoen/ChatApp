@@ -6,7 +6,7 @@
              xmlns:local="clr-namespace:WpfClient.Views.UserControls"
              mc:Ignorable="d" Background="Transparent"
              d:DesignHeight="300" d:DesignWidth="300"
-             MaxHeight="500" MaxWidth="700">
+             MaxHeight="400" MaxWidth="700">
     <WrapPanel Name="Container">
         <Image x:Name="Image" MouseLeftButtonUp="Image_OnMouseLeftButtonUp" Stretch="Uniform"
                RenderOptions.BitmapScalingMode="HighQuality" Loaded="Image_OnLoaded"/>

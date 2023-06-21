@@ -14,13 +14,13 @@ public partial class FileEmbed : UserControl
 
     public static readonly DependencyProperty FileTypeProperty = DependencyProperty.Register(
         nameof(FileType), typeof(FileType), typeof(FileEmbed), new PropertyMetadata(default(FileType)));
-    
+
     public static readonly DependencyProperty DownloadUrlProperty = DependencyProperty.Register(
         nameof(DownloadUrl), typeof(string), typeof(FileEmbed), new PropertyMetadata(default(string)));
-    
+
     public static readonly DependencyProperty FileNameProperty = DependencyProperty.Register(
         nameof(FileName), typeof(string), typeof(FileEmbed), new PropertyMetadata(default(string)));
-    
+
     public static readonly DependencyProperty FileSizeProperty = DependencyProperty.Register(
         nameof(FileSize), typeof(long), typeof(FileEmbed), new PropertyMetadata(default(long)));
 
@@ -29,19 +29,19 @@ public partial class FileEmbed : UserControl
         get => (FileType) GetValue(FileTypeProperty);
         set => SetValue(FileTypeProperty, value);
     }
-    
+
     public string DownloadUrl
     {
         get => (string) GetValue(DownloadUrlProperty);
         set => SetValue(DownloadUrlProperty, value);
     }
-    
+
     public string FileName
     {
         get => (string) GetValue(FileNameProperty);
         set => SetValue(FileNameProperty, value);
     }
-    
+
     public long FileSize
     {
         get => (long) GetValue(FileSizeProperty);

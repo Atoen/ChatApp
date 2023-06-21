@@ -12,7 +12,7 @@ public partial class GifEmbed
     {
         InitializeComponent();
     }
-    
+
     public static readonly DependencyProperty GifSourceProperty = DependencyProperty.Register(
         nameof(GifSource), typeof(string), typeof(ImageEmbed), new PropertyMetadata(default(string)));
 

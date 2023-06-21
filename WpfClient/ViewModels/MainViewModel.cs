@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IdentityModel.Tokens.Jwt;
 using System.IO;
@@ -11,39 +10,109 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.AspNetCore.SignalR.Client;
+using FluentResults;
 using Microsoft.Win32;
-using RestSharp;
-using RestSharp.Authenticators;
-using TusDotNetClient;
+using WpfClient.Extensions;
 using WpfClient.Models;
-using WpfClient.Views.UserControls;
+using WpfClient.Services;
 
 namespace WpfClient.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {
-    [ObservableProperty] private string _message = string.Empty;
-    [ObservableProperty] private ObservableCollection<Message> _messages = new();
+    [ObservableProperty] private string _userMessage = string.Empty;
+    [ObservableProperty] private MessageCollection _messages = new();
     [ObservableProperty] private ObservableCollection<string> _onlineUsers = new();
     [ObservableProperty] private string _username = "Username";
     [ObservableProperty] private string _connectionStatus = "Connecting";
-    [ObservableProperty] private double _uploadProgress;
+
     [ObservableProperty] private bool _isUploading;
+    [ObservableProperty] private double _uploadProgress;
 
     private readonly Dispatcher _dispatcher;
-    private HubConnection _connection = default!;
-    private RestClient _restClient = default!;
-    private readonly TusClient _tusClient = new();
-    private readonly TimeSpan _firstMessageTimeSpan = TimeSpan.FromMinutes(5);
+
+    private Message? _uploadMessage;
+    private string _token = "token";
+
+    private readonly FileTransferService _fileTransferService;
+    private readonly MessageService _messageService;
+    private readonly SignalRService _signalRService;
 
     public MainViewModel()
     {
         _dispatcher = Application.Current.Dispatcher;
+        string TokenProvider() => _token;
+
+        _fileTransferService = new FileTransferService(TokenProvider);
+        _fileTransferService.UploadingChanged += uploading => IsUploading = uploading;
+        _fileTransferService.UploadProgressChanged += progress => UploadProgress = progress;
+
+        _messageService = new MessageService(TokenProvider, _dispatcher)
+        {
+            MessageReceived = message => Messages.Add(message)
+        };
+
+        _signalRService = new SignalRService(TokenProvider, _messageService, _dispatcher)
+        {
+            ConnectionStatusChanged = status => ConnectionStatus = status,
+            UserConnected = user => OnlineUsers.Add(user),
+            UserDisconnected = user => OnlineUsers.Remove(user),
+            GetConnectedUsers = users =>
+            {
+                OnlineUsers.Clear();
+
+                foreach (var user in users)
+                {
+                    OnlineUsers.Add(user);
+                }
+            }
+        };
+    }
+
+    private bool CanPasteImage() => !IsUploading;
+
+    public void SetToken(string token)
+    {
+        _token = token;
+
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
+        var nameClaim = jwt.Claims.FirstOrDefault(x => x.Type == "unique_name");
+
+        Username = nameClaim?.Value ?? throw new InvalidOperationException();
+    }
+
+    public async Task ConnectAsync()
+    {
+        var result = await _signalRService.ConnectAsync();
+        ShowErrorsIfFailed(result);
+
+        if (!result.IsFailed)
+        {
+            var page = await _messageService.GetNextMessagePageFormattedAsync();
+            _dispatcher.Invoke(() => Messages.InsertPage(page));
+        }
+    }
+
+    public async void GetNextPage()
+    {
+        var page = await _messageService.GetNextMessagePageFormattedAsync();
+        _dispatcher.Invoke(() => Messages.InsertPage(page));
+    }
+
+    [RelayCommand]
+    private async Task SendMessageAsync(CancellationToken token)
+    {
+        var messageContent = UserMessage;
+        UserMessage = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(messageContent)) return;
+
+        var result = await _signalRService.SendMessageAsync(messageContent, token);
+        ShowErrorsIfFailed(result);
     }
 
     [RelayCommand(CanExecute = nameof(CanPasteImage))]
-    private async Task PasteImageAsync()
+    private async Task PasteImageAsync(CancellationToken cancellationToken)
     {
         var image = Clipboard.GetImage()!;
 
@@ -57,204 +126,48 @@ public partial class MainViewModel : ObservableObject
         await fileStream.DisposeAsync();
 
         var fileInfo = new FileInfo(path);
-        await UploadFileAsync(fileInfo);
+        await DisplayFileTransferProgress(fileInfo, cancellationToken);
 
         File.Delete(path);
     }
 
-    private bool CanPasteImage() => !IsUploading;
-    
-    public void SetToken(string token)
-    {
-        _restClient = new RestClient(new RestClientOptions
-        {
-            BaseUrl = new Uri(App.EndPointUri),
-            Authenticator = new JwtAuthenticator(token)
-        });
-
-        _tusClient.AdditionalHeaders["Authorization"] = $"Bearer {token}";
-
-        _connection = new HubConnectionBuilder()
-            .WithUrl($"{App.EndPointUri}/chat", options =>
-            {
-                options.Headers["Authorization"] = $"Bearer {token}";
-            })
-            .WithAutomaticReconnect()
-            .Build();
-
-        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
-        var nameClaim = jwt.Claims.FirstOrDefault(x => x.Type == "unique_name");
-
-        Username = nameClaim?.Value ?? "User";
-    }
-
-    public async Task ConnectAsync()
-    {
-        RegisterHandlers();
-
-        try
-        {
-            await _connection.StartAsync();
-            ConnectionStatus = "Online";
-        }
-        catch (Exception e)
-        {
-            _dispatcher.Invoke(() => Messages.Add(new Message("System", e.Message)));
-        }
-    }
-
-    private void RegisterHandlers()
-    {
-        _connection.Reconnecting += _ =>
-        {
-            ConnectionStatus = "Reconnecting";
-            return Task.CompletedTask;
-        };
-
-        _connection.Reconnected += _ =>
-        {
-            ConnectionStatus = "Online";
-            return Task.CompletedTask;
-        };
-
-        _connection.Closed += async _ =>
-        {
-            ConnectionStatus = "Disconnected";
-            await Task.Delay(TimeSpan.FromSeconds(5));
-            await _connection.StartAsync();
-        };
-
-        _connection.On<IEnumerable<string>>("GetConnectedUsers", users =>
-        {
-            _dispatcher.Invoke(() =>
-            {
-                OnlineUsers.Clear();
-
-                foreach (var user in users)
-                {
-                    OnlineUsers.Add(user);
-                }
-            });
-        });
-
-        _connection.On<Message>("ReceiveMessage", message =>
-        {
-            _dispatcher.Invoke(() => ReceiveMessage(message));
-        });
-
-        _connection.On<string>("UserConnected", user =>
-        {
-            _dispatcher.Invoke(() => OnlineUsers.Add(user));
-        });
-
-        _connection.On<string>("UserDisconnected", user =>
-        {
-            _dispatcher.Invoke(() => OnlineUsers.Remove(user));
-        });
-    }
-
-    private void ReceiveMessage(Message message)
-    {
-        message.ParseEmbedData(_restClient);
-
-        if (Messages.Count == 0)
-        {
-            message.IsFirstMessage = true;
-            Messages.Add(message);
-            return;
-        }
-
-        var lastMessage = Messages[^1];
-        if (message.Author != lastMessage.Author ||
-            message.Timestamp.Subtract(lastMessage.Timestamp) > _firstMessageTimeSpan)
-        {
-            message.IsFirstMessage = true;
-        }
-
-        Messages.Add(message);
-    }
-
-    [RelayCommand]
-    private async Task SendMessageAsync(CancellationToken token = default)
-    {
-        var messageContent = Message;
-        Message = string.Empty;
-        
-        if (string.IsNullOrWhiteSpace(messageContent)) return;
-        
-        try
-        {
-            await _connection.InvokeAsync("SendMessage", messageContent, cancellationToken: token);
-        }
-        catch (Exception e)
-        {
-            AddMessage(new("System", e.Message) {IsFirstMessage = true});
-        }
-    }
-
     [RelayCommand(IncludeCancelCommand = true)]
-    private async Task SendFileAsync(CancellationToken token = default)
+    private async Task SendFileAsync(CancellationToken token)
     {
         var fileDialog = new OpenFileDialog
         {
             Multiselect = false
         };
         if (fileDialog.ShowDialog() == false) return;
-        
-        var fileInfo = new FileInfo(fileDialog.FileName);
-        
-        _uploadMessage = CreateUploadMessage(fileInfo);
-        AddMessage(_uploadMessage);
 
-        await UploadFileAsync(fileInfo, token);
+        var fileInfo = new FileInfo(fileDialog.FileName);
+
+        await DisplayFileTransferProgress(fileInfo, token);
     }
 
-    private Message CreateUploadMessage(FileInfo fileInfo)
+    private async Task DisplayFileTransferProgress(FileInfo fileInfo, CancellationToken token)
     {
-        var embed = new FileUploadEmbed
-        {
-            UploadedFileName = fileInfo.Name,
-            UploadedFileSize = fileInfo.Length
-        };
+        _uploadMessage = _fileTransferService.CreateUploadMessage(fileInfo);
+        AddMessage(_uploadMessage);
 
-        return new Message("System", string.Empty)
+        var result = await _fileTransferService.UploadFileAsync(Username, fileInfo, token);
+        RemoveUploadMessage();
+
+        ShowErrorsIfFailed(result);
+    }
+
+    private void ShowErrorsIfFailed(Result result)
+    {
+        foreach (var error in result.Errors)
         {
-            UiEmbed = embed
-        };
+            AddMessage(Message.SystemMessage(error.Message));
+        }
     }
 
     private void RemoveUploadMessage()
     {
         if (_uploadMessage is not null) _dispatcher.Invoke(() => Messages.Remove(_uploadMessage));
         _uploadMessage = null;
-    }
-
-    private Message? _uploadMessage;
-
-    private async Task UploadFileAsync(FileInfo fileInfo, CancellationToken token = default)
-    {
-        IsUploading = true;
-
-        try
-        {
-            var url = await _tusClient.CreateAsync($"{App.EndPointUri}/tus", fileInfo,
-                ("length", fileInfo.Length.ToString()), ("sender", Username));
-
-            var upload = _tusClient.UploadAsync(url, fileInfo, chunkSize: 10, cancellationToken: token);
-
-            upload.Progressed += (transferred, total) => UploadProgress = (double) transferred / total;
-            await upload;
-        }
-        catch (Exception e)
-        {
-            if (!token.IsCancellationRequested)
-            {
-                AddMessage(new("System", e.Message) {IsFirstMessage = true});
-            }
-        }
-        RemoveUploadMessage();
-
-        IsUploading = false;
     }
 
     private void AddMessage(Message message) => _dispatcher.Invoke(() => Messages.Add(message));

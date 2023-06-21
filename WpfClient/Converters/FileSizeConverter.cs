@@ -9,7 +9,7 @@ public class FileSizeConverter : IValueConverter
     private const long BytesPerKiloByte = 1024;
     private const long BytesPerMegaByte = 1024 * BytesPerKiloByte;
     private const long BytesPerGigaByte = 1024 * BytesPerMegaByte;
-    
+
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
         var bytes = (long) value;

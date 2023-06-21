@@ -1,26 +1,51 @@
 using FluentValidation;
+using HealthChecks.UI.Client;
+using HttpServer.Health;
 using HttpServer.Hubs;
-using HttpServer.Installers;
+using HttpServer.Identity;
 using Microsoft.EntityFrameworkCore;
 using HttpServer.Models;
 using HttpServer.Services;
+using HttpServer.Setup;
 using HttpServer.Validators;
+using LiteX.HealthChecks.MariaDB;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using tusdotnet;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.AddAuthentication();
+builder.ConfigureAuthentication();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(IdentityData.AdminUserPolicyName, policyBuilder =>
+    {
+        policyBuilder.RequireClaim(IdentityData.AdminUserClaimName, "true");
+    });
+});
 
-builder.Services.AddAuthorization();
+var connectionString = builder.Configuration.GetConnectionString("MariaDB");
+
+builder.Services.AddHealthChecks()
+    .AddMariaDB(connectionString)
+    .AddCheck<TusStoreHealthCheck>("TusStore");
 
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
 
-builder.Services.AddDbContext<AppDbContext>(x => x.UseNpgsql(builder.CreatePostgresConnectionString()));
+var serverVersion = new MySqlServerVersion(connectionString);
+builder.Services.AddDbContext<AppDbContext>(optionsBuilder => optionsBuilder
+    .UseMySql(connectionString, serverVersion)
+    .EnableDetailedErrors()
+);
+
 builder.Services.AddValidatorsFromAssemblyContaining(typeof(MessageValidator));
+
 builder.Services.AddTransient<IHashService, Argon2HashService>();
 builder.Services.AddSingleton<JwtTokenService>();
+builder.Services.AddSingleton<TusDiskStoreHelper>();
 builder.Services.AddScoped<UserService>();
-builder.Services.AddScoped<MessageEmbedService>();
+builder.Services.AddScoped<MessageService>();
+builder.Services.AddScoped<EmbedService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -35,12 +60,17 @@ if (app.Environment.IsDevelopment())
 
 // app.UseHttpsRedirection();
 
+app.MapHealthChecks("_health", new HealthCheckOptions
+{
+    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.ConfigureTus();
+app.MapTus("/tus", Tus.TusConfigurationFactory);
 
 app.MapControllers();
-app.MapHub<ChatHub>("/Chat");
+app.MapHub<ChatHub>("/chat");
 
 app.Run();

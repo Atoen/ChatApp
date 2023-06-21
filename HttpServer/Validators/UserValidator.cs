@@ -3,7 +3,7 @@ using HttpServer.Models;
 
 namespace HttpServer.Validators;
 
-public class UserValidator : AbstractValidator<UserDto>
+public class UserValidator : AbstractValidator<UserCredentialsDto>
 {
     public UserValidator()
     {

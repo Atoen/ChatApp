@@ -13,9 +13,9 @@ public class UserService
     private readonly AppDbContext _dbContext;
     private readonly IHashService _hashService;
     private readonly JwtTokenService _tokenService;
-    private readonly IValidator<UserDto> _validator;
+    private readonly IValidator<UserCredentialsDto> _validator;
 
-    public UserService(AppDbContext dbContext, IHashService hashService, JwtTokenService tokenService, IValidator<UserDto> validator)
+    public UserService(AppDbContext dbContext, IHashService hashService, JwtTokenService tokenService, IValidator<UserCredentialsDto> validator)
     {
         _dbContext = dbContext;
         _hashService = hashService;
@@ -23,15 +23,15 @@ public class UserService
         _validator = validator;
     }
 
-    public async Task<OneOf<Success<string>, NotFound, Unauthorized>> LoginAsync(UserDto userDto)
+    public async Task<OneOf<Success<string>, NotFound, Unauthorized>> LoginAsync(UserCredentialsDto userCredentialsDto)
     {
-        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Username == userDto.Username);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Username == userCredentialsDto.Username);
         if (user is null)
         {
             return new NotFound();
         }
 
-        var hash = await _hashService.HashAsync(userDto, user.Salt);
+        var hash = await _hashService.HashAsync(userCredentialsDto, user.Salt);
 
         if (hash != user.PasswordHash)
         {
@@ -40,31 +40,34 @@ public class UserService
 
         var token = _tokenService.CreateTokenString(
             new Claim(ClaimTypes.Name, user.Username),
-            new Claim(ClaimTypes.Role, "User"));
+            new Claim(ClaimTypes.Role, "User"),
+            new Claim(ClaimTypes.Sid, user.Id.ToString()));
 
         return new Success<string>(token);
     }
 
-    public async Task<OneOf<Success<string>, Conflict, Error<List<ValidationFailure>>, Error<string>>> RegisterUser(UserDto userDto)
+    public async Task<OneOf<Success<string>, Conflict, Error<List<ValidationFailure>>, Error<string>>> RegisterUser(UserCredentialsDto userCredentialsDto)
     {
-        var validationResult = await _validator.ValidateAsync(userDto);
+        var validationResult = await _validator.ValidateAsync(userCredentialsDto);
         if (!validationResult.IsValid)
         {
             return new Error<List<ValidationFailure>>(validationResult.Errors);
         }
 
-        if (await _dbContext.Users.AnyAsync(x => x.Username == userDto.Username))
+        if (await _dbContext.Users.AnyAsync(x => x.Username == userCredentialsDto.Username))
         {
             return new Conflict();
         }
 
-        var createResult = await CreateUser(userDto);
+        var createResult = await CreateUser(userCredentialsDto);
+
         return createResult.Match<OneOf<Success<string>, Conflict, Error<List<ValidationFailure>>, Error<string>>>(
             user =>
             {
                 var token = _tokenService.CreateTokenString(
                     new Claim(ClaimTypes.Name, user.Username),
-                    new Claim(ClaimTypes.Role, "User"));
+                    new Claim(ClaimTypes.Role, "user"),
+                    new Claim(ClaimTypes.Sid, user.Id.ToString()));
 
                 return new Success<string>(token);
             },
@@ -72,20 +75,39 @@ public class UserService
             error => error);
     }
 
-    private async Task<OneOf<User, Conflict, Error<string>>> CreateUser(UserDto userDto)
+    public async Task<OneOf<User, NotFound>> GetUser(ClaimsPrincipal claimsPrincipal)
+    {
+        var idClaim = claimsPrincipal.Claims.FirstOrDefault(x => x.Type == ClaimTypes.Sid);
+        if (idClaim is null) return new NotFound();
+
+        var usernameClaim = claimsPrincipal.Claims.FirstOrDefault(x => x.Type == ClaimTypes.Name);
+        if (usernameClaim is null) return new NotFound();
+        
+        var user = await _dbContext.Users.FindAsync(Guid.Parse(idClaim.Value));
+
+        if (user is null || user.Username != usernameClaim.Value)
+        {
+            return new NotFound();
+        }
+
+        return user;
+    }
+
+    private async Task<OneOf<User, Conflict, Error<string>>> CreateUser(UserCredentialsDto userCredentialsDto)
     {
         var salt = _hashService.GetSalt(16);
-        var hash = await _hashService.HashAsync(userDto, salt);
+        var hash = await _hashService.HashAsync(userCredentialsDto, salt);
 
         var user = new User
         {
-            Username = userDto.Username,
+            Username = userCredentialsDto.Username,
             PasswordHash = hash,
             Salt = salt,
             Id = Guid.NewGuid()
         };
 
         await _dbContext.Users.AddAsync(user);
+
         try
         {
             await _dbContext.SaveChangesAsync();
@@ -105,4 +127,5 @@ public class UserService
 }
 
 public struct Unauthorized { }
+
 public struct Conflict { }

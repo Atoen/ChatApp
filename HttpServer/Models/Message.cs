@@ -1,31 +1,36 @@
-﻿namespace HttpServer.Models;
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace HttpServer.Models;
 
 public class Message
 {
+    public int Id { get; set; }
     public User Author { get; set; } = null!;
-    public Guid Id { get; set; }
+    public Guid AuthorId { get; set; }
     public DateTimeOffset Timestamp { get; set; }
-    public string Content { get; set; } = null!;
+    public string Content { get; set; } = string.Empty;
+    public Embed? Embed { get; set; }
+
+    public MessageDto ToDto()
+    {
+        return new MessageDto
+        {
+            Author = Author.ToDto(),
+            Id = Id,
+            Timestamp = Timestamp,
+            Content = Content,
+            Embed = Embed
+        };
+    }
 }
 
-public class HubMessage
+public class MessageDto
 {
-    public string Author { get; set; } = null!;
+    public required MessageAuthorDto Author { get; set; }
+    public int Id { get; set; }
     public DateTimeOffset Timestamp { get; set; }
-    public string Content { get; set; } = null!;
-
+    public required string Content { get; set; }
     public Embed? Embed { get; set; }
 }
 
-public class Embed
-{
-    public EmbedType Type { get; set; }
-    public Dictionary<string, string> EmbedData { get; set; } = default!;
-}
 
-public enum EmbedType
-{
-    File,
-    Image,
-    Gif
-}

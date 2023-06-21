@@ -5,7 +5,7 @@ namespace HttpServer.Hubs;
 
 public interface IChatClient
 {
-    Task ReceiveMessage(HubMessage message);
+    Task ReceiveMessage(Message message);
 
     Task UserConnected(string user);
 

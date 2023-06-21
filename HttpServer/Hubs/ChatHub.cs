@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using HttpServer.Models;
+using HttpServer.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 
@@ -8,28 +9,31 @@ namespace HttpServer.Hubs;
 [Authorize]
 public class ChatHub : Hub<IChatClient>
 {
+    private readonly UserService _userService;
+    private readonly MessageService _messageService;
     private static readonly ConcurrentDictionary<string, byte> Users = new();
 
-    public async Task SendMessage(string message)
+    public ChatHub(UserService userService, MessageService messageService)
     {
-        var user = Context.User?.Identity?.Name!;
-
-        var message2 = new HubMessage
-        {
-            Author = user,
-            Timestamp = DateTimeOffset.Now,
-            Content = message
-        };
-
-        await Clients.All.ReceiveMessage(message2);
+        _userService = userService;
+        _messageService = messageService;
     }
 
-    public async Task SendMessage2(HubMessage message)
+    public async Task SendMessage(string messageContent)
     {
-        if (message.Author == Context.User?.Identity?.Name)
+        var user = await _userService.GetUser(Context.User!);
+
+        var message = new Message
         {
-            await Clients.All.ReceiveMessage(message);
-        }
+            Author = user.AsT0,
+            Timestamp = DateTimeOffset.Now,
+            Content = messageContent
+        };
+        
+        var store = _messageService.StoreMessage(message);
+        var receive = Clients.All.ReceiveMessage(message);
+
+        await Task.WhenAll(store, receive);
     }
 
     public override async Task OnConnectedAsync()
@@ -39,6 +43,7 @@ public class ChatHub : Hub<IChatClient>
         Users.TryAdd(user, default);
 
         var usernames = Users.Select(x => x.Key);
+
         await Clients.Caller.GetConnectedUsers(usernames);
         await Clients.Others.UserConnected(user);
     }
@@ -48,7 +53,7 @@ public class ChatHub : Hub<IChatClient>
         var user = Context.User?.Identity?.Name!;
 
         Users.TryRemove(user, out _);
-        
+
         await Clients.All.UserDisconnected(user);
     }
 }

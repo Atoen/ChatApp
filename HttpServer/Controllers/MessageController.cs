@@ -1,7 +1,7 @@
-using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using HttpServer.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
 
 namespace HttpServer.Controllers;
 
@@ -10,43 +10,33 @@ namespace HttpServer.Controllers;
 public class MessageController : ControllerBase
 {
     private readonly AppDbContext _context;
-    private readonly IValidator<Message> _messageValidator;
+    private readonly ILogger<MessageController> _logger;
 
-    public MessageController(AppDbContext context, IValidator<Message> messageValidator)
+    public MessageController(AppDbContext context, ILogger<MessageController> logger)
     {
         _context = context;
-        _messageValidator = messageValidator;
+        _logger = logger;
     }
-    // GET: api/Message?id=5
+
+    private const int PageSize = 20;
+
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Message>>> GetMessagesByUser([FromQuery] Guid authorId)
+    [Authorize]
+    public async IAsyncEnumerable<MessageDto> GetMessages(int page, int offset = 0)
     {
-        var messages = await _context.Messages
-            .Where(x => x.Author.Id == authorId)
-            .ToListAsync();
+        _logger.LogInformation("Getting message page for {User}", HttpContext.User.Identity?.Name);
+        
+        var messages = _context.Messages
+            .OrderByDescending(m => m.Timestamp)
+            .Skip(page * PageSize + offset)
+            .Take(20)
+            .Reverse()
+            .Include(m => m.Author)
+            .AsAsyncEnumerable();
 
-        if (messages.Count == 0)
+        await foreach (var message in messages)
         {
-            return NotFound();
+            yield return message.ToDto();
         }
-
-        return messages;
-    }
-
-    // POST: api/Message
-    // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-    [HttpPost]
-    public async Task<ActionResult<Message>> PostMessage(Message message)
-    {
-        var validationResult = await _messageValidator.ValidateAsync(message);
-        if (!validationResult.IsValid)
-        {
-            return BadRequest(validationResult.Errors);
-        }
-
-        _context.Messages.Add(message);
-        await _context.SaveChangesAsync();
-            
-        return Ok();
     }
 }

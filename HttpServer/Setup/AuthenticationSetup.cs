@@ -2,11 +2,11 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 
-namespace HttpServer.Installers;
+namespace HttpServer.Setup;
 
 public static class AuthenticationSetup
 {
-    public static IServiceCollection AddAuthentication(this WebApplicationBuilder builder)
+    public static IServiceCollection ConfigureAuthentication(this WebApplicationBuilder builder)
     {
         builder.Services.AddAuthentication(options =>
         {
@@ -23,8 +23,9 @@ public static class AuthenticationSetup
                     (Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)),
                 ValidateIssuer = true,
                 ValidateAudience = true,
-                ValidateLifetime = false,
+                ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
+                ClockSkew = TimeSpan.FromSeconds(10)
             };
 
             options.Events = new JwtBearerEvents
@@ -34,7 +35,7 @@ public static class AuthenticationSetup
                     var accessToken = context.Request.Query["access_token"];
 
                     var path = context.HttpContext.Request.Path;
-                    if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/chat"))
+                    if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/Chat"))
                     {
                         context.Token = accessToken;
                     }

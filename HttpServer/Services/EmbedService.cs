@@ -4,14 +4,14 @@ using tusdotnet.Interfaces;
 
 namespace HttpServer.Services;
 
-public class MessageEmbedService
+public class EmbedService
 {
     private static readonly string[] ImageExtensions = {".jpg", ".jpeg", ".png"};
-    
+
     public async Task<Embed> CreateEmbed(ITusFile file, HttpContext context)
     {
         var metadata = await file.GetMetadataAsync(context.RequestAborted);
-        
+
         var filename = metadata["filename"].GetString(Encoding.UTF8);
         var length = metadata["length"].GetString(Encoding.UTF8);
         var uri = CreateUri(file, context);
@@ -21,7 +21,7 @@ public class MessageEmbedService
             return new Embed
             {
                 Type = EmbedType.Image,
-                EmbedData = new()
+                Data = new()
                 {
                     {"Uri", uri}
                 }
@@ -31,7 +31,7 @@ public class MessageEmbedService
         return new Embed
         {
             Type = EmbedType.File,
-            EmbedData = new()
+            Data = new()
             {
                 {"Uri", uri},
                 {"Filename", filename},

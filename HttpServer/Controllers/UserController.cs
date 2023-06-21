@@ -16,9 +16,9 @@ public class UserController : ControllerBase
     }
 
     [HttpPost("login")]
-    public async Task<ActionResult> LoginUser(UserDto userDto)
+    public async Task<ActionResult> LoginUser(UserCredentialsDto userCredentialsDto)
     {
-        var result = await _userService.LoginAsync(userDto);
+        var result = await _userService.LoginAsync(userCredentialsDto);
         var response = result.Match<ActionResult>(
             success => Ok(success.Value),
             notFound => NotFound(),
@@ -28,9 +28,9 @@ public class UserController : ControllerBase
     }
 
     [HttpPost("signup")]
-    public async Task<ActionResult> RegisterUser(UserDto userDto)
+    public async Task<ActionResult> RegisterUser(UserCredentialsDto userCredentialsDto)
     {
-        var result = await _userService.RegisterUser(userDto);
+        var result = await _userService.RegisterUser(userCredentialsDto);
         var response = result.Match<ActionResult>(
             success => Ok(success.Value),
             conflict => Conflict(),

@@ -1,5 +1,6 @@
 ﻿using System.Net.Mime;
 using System.Text;
+using HttpServer.Services;
 using Microsoft.AspNetCore.Mvc;
 using tusdotnet.Interfaces;
 using tusdotnet.Models;
@@ -11,15 +12,23 @@ namespace HttpServer.Controllers;
 [Route("api/[controller]")]
 public class FileController : ControllerBase
 {
+    private readonly TusDiskStoreHelper _diskStoreHelper;
+
+    public FileController(TusDiskStoreHelper diskStoreHelper)
+    {
+        _diskStoreHelper = diskStoreHelper;
+    }
+
     [HttpGet]
     public async Task<ActionResult> DownloadFile([FromQuery] string id)
     {
-        var store = new TusDiskStore(@"D:\Tus\");
+        var store = new TusDiskStore(_diskStoreHelper.Path);
 
         ITusFile file;
         try
         {
             file = await store.GetFileAsync(id, HttpContext.RequestAborted);
+            if (file is null) return BadRequest("Invalid file id");
         }
         catch (TusStoreException e)
         {

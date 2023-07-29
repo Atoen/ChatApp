@@ -1,10 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
-using System.Threading.Tasks;
 using System.Windows;
-using RestSharp;
-using WpfClient.Views.UserControls;
 
 namespace WpfClient.Models;
 

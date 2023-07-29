@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -15,48 +14,43 @@ public partial class MainWindow
     private ScrollViewer ScrollViewer => _scrollViewer ??= MessageListView.FindVisualChild<ScrollViewer>()!;
     private ScrollViewer? _scrollViewer;
 
-    private double _scrollPosition;
-
-    private bool _requestedNextPage;
+    private bool _requestingNextPage;
+    private Message? _pageAnchorMessage;
 
     public MainWindow(string token)
     {
         InitializeComponent();
-        
+
         Title = "SquadTalk";
         MaxHeight = SystemParameters.MaximizedPrimaryScreenHeight;
 
         var messageCollection = (MessageCollection) MessageListView.Items.SourceCollection;
 
-        messageCollection.MessageAdded += delegate(MessageCollection _, Message message)
+        messageCollection.MessageAdded += delegate
         {
-            var scrollableHeight = ScrollViewer.ScrollableHeight;
-            var verticalOffset = ScrollViewer.VerticalOffset;
-            
-            if (Math.Abs(scrollableHeight - verticalOffset) < 0.1)
+            if (Math.Abs(ScrollViewer.ScrollableHeight - ScrollViewer.VerticalOffset) < 0.1)
             {
-                MessageListView.ScrollIntoView(message);
+                ScrollViewer.ScrollToBottom();
             }
         };
 
         messageCollection.PageAdding += delegate
         {
-            _scrollPosition = ScrollViewer.ScrollableHeight - ScrollViewer.VerticalOffset;
+            _pageAnchorMessage = FindOldestVisibleMessage(messageCollection);
         };
-        
-        messageCollection.PageAdded += delegate(MessageCollection sender, IList<Message> page)
-        {
-            _requestedNextPage = false;
 
-            if (sender.Count == page.Count)
+        messageCollection.PageAdded += delegate
+        {
+            if (_pageAnchorMessage is null)
             {
-                MessageListView.ScrollIntoView(page[^1]);
+                ScrollViewer.ScrollToBottom();
             }
             else
             {
-                ScrollViewer.UpdateLayout();
-                ScrollViewer.ScrollToVerticalOffset(ScrollViewer.ScrollableHeight - _scrollPosition);
+                MessageListView.ScrollIntoView(_pageAnchorMessage);
             }
+
+            _requestingNextPage = false;
         };
 
         var viewModel = (MainViewModel) DataContext;
@@ -66,6 +60,31 @@ public partial class MainWindow
             viewModel.SetToken(token);
             await viewModel.ConnectAsync();
         });
+    }
+
+    private Message? FindOldestVisibleMessage(MessageCollection messageCollection)
+    {
+        var startIndex = Math.Min(20, messageCollection.Count);
+
+        for (var i = startIndex - 1; i >= 0; i--)
+        {
+            if (MessageListView.ItemContainerGenerator.ContainerFromIndex(i) is not ListViewItem {IsVisible: true} item)
+            {
+                continue;
+            }
+
+            var transform = item.TransformToAncestor(MessageListView);
+            var rect = transform.TransformBounds(new Rect(new Point(0, 0), item.RenderSize));
+
+            var offset = MessageListView.ActualHeight - rect.Bottom;
+
+            if (offset > 0)
+            {
+                return messageCollection[i];
+            }
+        }
+
+        return null;
     }
 
     private async void MessageBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
@@ -83,19 +102,19 @@ public partial class MainWindow
 
     private void MessageListView_OnScrollChanged(object sender, ScrollChangedEventArgs e)
     {
-        if (e.VerticalChange >= 0 || _requestedNextPage) return;
-        
-        var scrollThreshold = ScrollViewer.ScrollableHeight * 0.2;
+        if (e.VerticalChange >= 0 || _requestingNextPage) return;
+
+        var scrollThreshold = ScrollViewer.ScrollableHeight * 0.05;
         var offset = ScrollViewer.VerticalOffset;
 
         if (offset <= scrollThreshold)
         {
             var viewModel = (MainViewModel) DataContext;
-            
-            if (_requestedNextPage) return;
-            
-            _requestedNextPage = true;
-            
+
+            if (_requestingNextPage) return;
+
+            _requestingNextPage = true;
+
             viewModel.GetNextPage();
         }
     }

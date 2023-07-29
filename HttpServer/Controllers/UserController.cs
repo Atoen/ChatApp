@@ -26,6 +26,20 @@ public class UserController : ControllerBase
 
         return response;
     }
+    
+    [HttpPost("loginToken")]
+    public async Task<ActionResult> LoginUsingToken(string token)
+    {
+        // var result = await _userService.LoginAsync(userCredentialsDto);
+        // var response = result.Match<ActionResult>(
+        //     success => Ok(success.Value),
+        //     notFound => NotFound(),
+        //     unauthorized => Unauthorized());
+        //
+        // return response;
+
+        return Ok();
+    }
 
     [HttpPost("signup")]
     public async Task<ActionResult> RegisterUser(UserCredentialsDto userCredentialsDto)

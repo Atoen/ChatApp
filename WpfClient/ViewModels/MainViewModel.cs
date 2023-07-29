@@ -37,7 +37,7 @@ public partial class MainViewModel : ObservableObject
     private readonly FileTransferService _fileTransferService;
     private readonly MessageService _messageService;
     private readonly SignalRService _signalRService;
-
+    
     public MainViewModel()
     {
         _dispatcher = Application.Current.Dispatcher;
@@ -49,7 +49,7 @@ public partial class MainViewModel : ObservableObject
 
         _messageService = new MessageService(TokenProvider, _dispatcher)
         {
-            MessageReceived = message => Messages.Add(message)
+            MessageReceived = AddMessageWithNotification
         };
 
         _signalRService = new SignalRService(TokenProvider, _messageService, _dispatcher)
@@ -96,6 +96,14 @@ public partial class MainViewModel : ObservableObject
     public async void GetNextPage()
     {
         var page = await _messageService.GetNextMessagePageFormattedAsync();
+
+        if (page.Count == 0) return;
+
+        if (Messages.Count > 0)
+        {
+            _messageService.CheckIfIsNewMessage(Messages[0], page[^1]);
+        }
+
         _dispatcher.Invoke(() => Messages.InsertPage(page));
     }
 
@@ -171,4 +179,9 @@ public partial class MainViewModel : ObservableObject
     }
 
     private void AddMessage(Message message) => _dispatcher.Invoke(() => Messages.Add(message));
+
+    private void AddMessageWithNotification(Message message)
+    {
+        Messages.Add(message);
+    }
 }

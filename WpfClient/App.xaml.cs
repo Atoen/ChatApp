@@ -7,7 +7,7 @@ namespace WpfClient;
 /// </summary>
 public partial class App : Application
 {
-    internal static string EndPointUri = "";
+    internal static readonly string EndPointUri = "http://squadtalk.ddns.net";
     // internal static string EndPointUri = "https://squadtalk.azurewebsites.net/";
 
 }

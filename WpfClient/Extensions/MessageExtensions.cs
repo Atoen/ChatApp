@@ -1,15 +1,14 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
-using DSaladin.FontAwesome.WPF;
 using RestSharp;
 using WpfClient.Models;
-using WpfClient.Views.UserControls;
+using WpfClient.Views.UserControls.Embeds;
 
 namespace WpfClient.Extensions;
 
 public static class MessageExtensions
 {
-    [STAThread]
     public static async Task ParseEmbedDataAsync(this Message message, IRestClient client)
     {
         if (message.Embed is {Type: EmbedType.Image})
@@ -20,13 +19,15 @@ public static class MessageExtensions
             };
         }
 
-        else if (message.Embed is not null)
+        else if (message.Embed is {Type: EmbedType.File})
         {
+            var filename = message.Embed["Filename"];
+
             message.UiEmbed = new FileEmbed
             {
-                FileType = FileType.Default,
+                FileType = GetFileType(filename),
                 DownloadUrl = message.Embed["Uri"],
-                FileName = message.Embed["Filename"],
+                FileName = filename,
                 FileSize = long.Parse(message.Embed["FileSize"])
             };
         }
@@ -58,5 +59,28 @@ public static class MessageExtensions
         {
             return false;
         }
+    }
+
+    private const string Pdf = "pdf";
+    private const string Text = "txt";
+    private static readonly List<string> Archive = new() {"zip", "rar", "7z"};
+    private static readonly List<string> Code = new() {"cs", "java", "cpp", "py", "js", "c"};
+    private static readonly List<string> Video = new() { "mp4", "avi", "mov", "mkv" };
+
+    private static FileType GetFileType(string filename)
+    {
+        var tokens = filename.Split('.');
+
+        if (tokens.Length < 2) return FileType.Default;
+        var extension = tokens[^1].ToLower();
+
+        if (extension == Pdf) return FileType.Pdf;
+        if (extension == Text) return FileType.Text;
+
+        if (Archive.Contains(extension)) return FileType.Archive;
+        if (Code.Contains(extension)) return FileType.Code;
+        if (Video.Contains(extension)) return FileType.Video;
+
+        return FileType.Default;
     }
 }

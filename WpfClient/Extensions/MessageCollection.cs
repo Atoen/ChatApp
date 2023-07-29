@@ -35,7 +35,7 @@ public class MessageCollection : ObservableCollection<Message>
         if (page.Count == 0) return;
 
         CheckReentrancy();
-        
+
         PageAdding?.Invoke(this, page);
 
         for (var i = page.Count - 1; i >= 0; i--)

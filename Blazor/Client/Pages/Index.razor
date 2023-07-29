@@ -1,0 +1,26 @@
+﻿@page "/"
+
+@inject NavigationManager Navigation
+
+<PageTitle>Index</PageTitle>
+
+<h1>Hello, world!</h1>
+
+Welcome to your new app.
+
+<SurveyPrompt Title="How is Blazor working for you?" />
+
+@code
+{
+    protected override async Task OnInitializedAsync()
+    {
+        await CheckCredentials();
+
+        Navigation.NavigateTo("app");
+    }
+
+    private Task CheckCredentials()
+    {
+        return Task.CompletedTask;
+    }
+}

@@ -140,4 +140,17 @@ public class MessageService
 
         return message;
     }
+
+    public void CheckIfIsNewMessage(Message oldMessage, Message pageMessage)
+    {
+        if (oldMessage.Author != pageMessage.Author ||
+            oldMessage.Timestamp.Subtract(pageMessage.Timestamp) > _firstMessageTimeSpan)
+        {
+            oldMessage.IsFirstMessage = true;
+        }
+        else
+        {
+            oldMessage.IsFirstMessage = false;
+        }
+    }
 }

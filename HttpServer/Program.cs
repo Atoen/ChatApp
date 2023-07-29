@@ -14,12 +14,24 @@ using tusdotnet;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var corsPolicy = "CorsPolicy";
+
 builder.ConfigureAuthentication();
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy(IdentityData.AdminUserPolicyName, policyBuilder =>
     {
         policyBuilder.RequireClaim(IdentityData.AdminUserClaimName, "true");
+    });
+});
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(name: corsPolicy, policy =>
+    {
+        policy.AllowAnyOrigin()
+            .AllowAnyHeader()
+            .AllowAnyMethod();
     });
 });
 
@@ -59,6 +71,8 @@ if (app.Environment.IsDevelopment())
 }
 
 // app.UseHttpsRedirection();
+
+app.UseCors(corsPolicy);
 
 app.MapHealthChecks("_health", new HealthCheckOptions
 {

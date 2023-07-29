@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using FluentResults;
 using TusDotNetClient;
 using WpfClient.Models;
-using WpfClient.Views.UserControls;
+using WpfClient.Views.UserControls.Embeds;
 
 namespace WpfClient.Services;
 

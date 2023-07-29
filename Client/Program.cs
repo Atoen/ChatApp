@@ -1,7 +1,4 @@
-﻿using System.Text;
-using Client;
-using Server;
-using Server.Messages;
+﻿using Client;
 
 Console.Write("Enter username: ");
 var username = Console.ReadLine();

@@ -4,7 +4,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:local="clr-namespace:WpfClient.Views.Windows"
-        xmlns:fa="http://schemas.fontawesome.io/icons/"
+        xmlns:fa="http://schemas.fontawesome.com/icons/svg"
         xmlns:userControls="clr-namespace:WpfClient.Views.UserControls"
         xmlns:viewModels="clr-namespace:WpfClient.ViewModels"
         mc:Ignorable="d" Background="#333333"
@@ -25,7 +25,7 @@
             <Setter Property="Visibility" Value="Collapsed"/>
             <Setter Property="Spin" Value="False" />
             <Setter Property="SpinDuration" Value="2" />
-            <Setter Property="Foreground" Value="DimGray" />
+            <Setter Property="PrimaryColor" Value="DimGray" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding WorkingNow}" Value="True">
                     <Setter Property="Visibility" Value="Visible"/>
@@ -161,7 +161,7 @@
                    FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"
                    Width="400" Height="80" TextAlignment="Center" TextWrapping="Wrap" />
         
-        <fa:ImageAwesome Grid.Column="0" Grid.Row="4" Icon="CircleOutlineNotch" Style="{StaticResource SpinnerStyle}"/>
+        <fa:ImageAwesome Grid.Column="0" Grid.Row="4" Icon="Solid_CircleNotch" Style="{StaticResource SpinnerStyle}"/>
 
         <StackPanel Grid.Column="0" Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Center">
             <Button Content="Log in" Style="{StaticResource LoginButtonStyle}" Command="{Binding LoginCommand}" />

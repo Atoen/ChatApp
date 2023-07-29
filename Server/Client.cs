@@ -5,7 +5,6 @@ using OneOf.Types;
 using Server.Messages;
 using Server.Net;
 using Server.Users;
-using System;
 
 namespace Server;
 

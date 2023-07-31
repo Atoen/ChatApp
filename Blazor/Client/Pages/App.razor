@@ -1,45 +1,20 @@
 ﻿@page "/app"
-@using System.Diagnostics
+
 @using Blazor.Client.Models
 @using Blazor.Client.Services
 @using Blazor.Shared
 @using Microsoft.Extensions.Logging
-@using RestSharp
-@using Microsoft.AspNetCore.Components.Authorization
-
-@inject ILogger<App> Logger
-@inject IJSRuntime JsRuntime
-@inject JWTService JwtService;
-@inject SignalRService SignalRService;
-@inject MessageService MessageService;
+@using System.Globalization
 
 <link rel="stylesheet" href="css/textbox.css" />
-<link rel="stylesheet" href="css/message.css" />
+<link rel="stylesheet" href="css/messageTemplate.css" />
 
 <PageTitle>title</PageTitle>
 
 <div class="message-listbox">
     <InfiniteScrolling ItemsProvider="GetMessagePage" @ref="_scrollRef">
         <ItemTemplate Context="message">
-
-            @if (message.IsFirst)
-            {
-                <div class="message-container">
-                    <img class="avatar message-element" src="user.png" alt="Avatar" />
-                    <div>
-                        <div>
-                            <span class="username message-element">@message.Author</span>
-                            <span class="date">@GetFormattedTimestamp(message.Timestamp)</span>
-                        </div>
-                        <div>@message.Content</div>
-                    </div>
-                </div>
-            }
-            else
-            {
-                <div class="content-only">@message.Content</div>
-            }
-
+            <MessageTemplate Model="message"/>
         </ItemTemplate>
 
         <LoadingTemplate>
@@ -70,16 +45,26 @@
         </svg>
     </label>
     
-    <InputFile OnChange="@SelectFile" multiple style="display: none" id="filePicker" />
+    <InputFile style="display: none" id="filePicker" />
 </div>
+
+@if (_uploading)
+{
+    <div>@_uploadProgress %</div>
+}
 
 <style>
     .page {
         height: 100vh;
         background: linear-gradient(0, rgba(34,193,195,1) 0, rgba(253,187,45,1) 100%);
     }
-
 </style>
+
+@inject ILogger<App> Logger
+@inject IJSRuntime JsRuntime
+@inject JWTService JwtService
+@inject SignalRService SignalRService
+@inject MessageService MessageService
 
 @code
 {
@@ -87,6 +72,10 @@
     private bool _preventDefaultEnter;
 
     private InfiniteScrolling<MessageModel> _scrollRef = null!;
+    private IJSObjectReference? _module;
+
+    private string? _uploadProgress;
+    private bool _uploading;
 
     protected override async Task OnInitializedAsync()
     {
@@ -95,7 +84,21 @@
         var result = await SignalRService.ConnectAsync();
         Console.WriteLine(result);
 
-        MessageService.MessageReceived = model => _scrollRef.InsertItem(0, model);
+        MessageService.MessageReceived = model =>
+        {
+            _scrollRef.InsertItem(0, model);
+            StateHasChanged();
+        };
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _module = await JsRuntime.InvokeAsync<IJSObjectReference>("import", "./FileTransfer.js");
+            var currentComponentReference = DotNetObjectReference.Create(this);
+            await _module.InvokeVoidAsync("initializeUpload", currentComponentReference);
+        }
     }
 
     private async Task TextBoxCallback(KeyboardEventArgs obj)
@@ -120,13 +123,28 @@
         }
     }
 
-    private void SelectFile(InputFileChangeEventArgs e)
+    [JSInvokable] public async Task<string> GetJwt() => await Task.FromResult(JwtService.Token);
+
+    [JSInvokable]
+    public void UploadStarted()
     {
-        foreach (var file in e.GetMultipleFiles())
-        {
-            Console.WriteLine(file);
-            Logger.LogInformation("File: {File}", file);
-        }
+        _uploading = true;
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void UploadStopped()
+    {
+        _uploading = false;
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void UploadProgressed(string progress)
+    {
+        _uploadProgress = progress;
+
+        StateHasChanged();
     }
 
     private async Task<IEnumerable<MessageModel>> GetMessagePage(InfiniteScrollingItemsProviderRequest request)
@@ -138,20 +156,5 @@
         }
 
         return page;
-    }
-
-    private static string GetFormattedTimestamp(DateTimeOffset dateTime)
-    {
-        if (dateTime.Date == DateTime.Today)
-        {
-            return $"Today {dateTime.ToLocalTime():HH:mm}";
-        }
-
-        if (dateTime.Date == DateTime.Today.AddDays(-1))
-        {
-            return $"Yesterday {dateTime.ToLocalTime():HH:mm}";
-        }
-
-        return dateTime.ToLocalTime().ToString("dd-MM-yyyy HH:mm");
     }
 }

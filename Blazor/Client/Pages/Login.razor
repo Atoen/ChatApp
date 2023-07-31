@@ -53,7 +53,7 @@
 	private string? _info;
 	private string? _color;
 
-	private async Task HandleSubmit()
+    private async Task HandleSubmit()
 	{
 		_working = true;
 		await AuthenticateAsync("api/user/login", "Logged in successfully");

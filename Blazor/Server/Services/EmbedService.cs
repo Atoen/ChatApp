@@ -14,7 +14,7 @@ public class EmbedService
         var metadata = await file.GetMetadataAsync(context.RequestAborted);
 
         var filename = metadata["filename"].GetString(Encoding.UTF8);
-        var length = metadata["length"].GetString(Encoding.UTF8);
+        var length = metadata["filesize"].GetString(Encoding.UTF8);
         var uri = CreateUri(file, context);
 
         if (HasImageExtension(filename))

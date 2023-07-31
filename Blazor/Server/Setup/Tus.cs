@@ -1,4 +1,5 @@
 ﻿using System.Net;
+using System.Text;
 using Blazor.Server.Hubs;
 using Blazor.Server.Models;
 using Blazor.Server.Services;
@@ -21,11 +22,11 @@ public class Tus
             // Expiration = new SlidingExpiration(TimeSpan.FromMinutes(5)),
             // UsePipelinesIfAvailable = true,
 
-            Events = new()
+            Events = new Events
             {
                 OnAuthorizeAsync = AuthorizeHandler,
                 OnCreateCompleteAsync = CreateCompleteHandler,
-                OnFileCompleteAsync = FileCompleteHandler
+                OnFileCompleteAsync = FileCompleteHandler,
             }
         };
 
@@ -37,7 +38,7 @@ public class Tus
         var httpContext = authorizeContext.HttpContext;
         var logger = httpContext.RequestServices.GetRequiredService<ILogger<Tus>>();
 
-        if (httpContext.User.Identity is not {IsAuthenticated: true})
+        if (httpContext.User.Identity is not { IsAuthenticated: true }) 
         {
             logger.LogInformation("Rejected unauthenticated request from {Remote}", httpContext.Connection.RemoteIpAddress);
             authorizeContext.FailRequest(HttpStatusCode.Unauthorized);
@@ -50,6 +51,7 @@ public class Tus
     {
         var logger = completeContext.HttpContext.RequestServices.GetRequiredService<ILogger<Tus>>();
         logger.LogInformation("Created file {File}", completeContext.FileId);
+
         return Task.CompletedTask;
     }
 

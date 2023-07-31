@@ -44,9 +44,16 @@ using HealthChecks.UI.Client;
 using Microsoft.EntityFrameworkCore;
 using LiteX.HealthChecks.MariaDB;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using tusdotnet;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.Configure<KestrelServerOptions>(options =>
+{
+    // options.Limits.MaxRequestBufferSize = null;
+    options.Limits.MaxRequestBodySize = 100 * 1024 * 1024;
+});
 
 var corsPolicy = "CorsPolicy";
 
@@ -59,13 +66,20 @@ builder.Services.AddAuthorization(options =>
     });
 });
 
+var tusHeaders = new[]
+{
+    "Tus-Resumable", "Upload-Length", "Upload-Metadata", "Upload-Offset", "Location", "Upload-Concat",
+    "Upload-Checksum", "Tus-Version", "Tus-Extension"
+};
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(name: corsPolicy, policy =>
     {
         policy.AllowAnyOrigin()
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .WithExposedHeaders("*");
     });
 });
 

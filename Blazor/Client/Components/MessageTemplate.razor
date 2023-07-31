@@ -1,0 +1,47 @@
+﻿@using Blazor.Client.Models
+
+<div class="message-container">
+    @if (Model.IsFirst)
+    {
+        <div class="message-padding"></div>
+        <img class="avatar" src="user.png" alt="Avatar"/>
+        <div class="username">@Model.Author</div>
+        <div class="date" data-date="@LongDate">@ShortDate</div>
+    }  
+
+    <div class="message-content">
+        @if (Model.Embed is not null)
+        {
+            <MessageEmbed Model="Model.Embed"/>
+        }
+        @Model.Content
+    </div>
+</div>
+
+@code {
+    [Parameter] public required MessageModel Model { get; set; }
+
+    private string? _shortDate;
+    private string? _longDate;
+
+    public string ShortDate => _shortDate ??= TimeStampConverter(Model.Timestamp, false);
+    public string LongDate => _longDate ??= TimeStampConverter(Model.Timestamp, true);
+
+    private static string TimeStampConverter(DateTimeOffset dateTime, bool detailed)
+    {
+        var format = detailed ? "HH:mm:ss" : "HH:mm";
+
+        if (dateTime.Date == DateTime.Today)
+        {
+            return $"Today {dateTime.ToLocalTime().ToString(format)}";
+        }
+
+        if (dateTime.Date == DateTime.Today.AddDays(-1))
+        {
+            return $"Yesterday {dateTime.ToLocalTime().ToString(format)}";
+        }
+
+        var fullFormat = detailed ? "dd-MM-yyyy HH:mm:ss" : "dd-MM-yyyy HH:mm";
+        return dateTime.ToLocalTime().ToString(fullFormat);
+    }
+}

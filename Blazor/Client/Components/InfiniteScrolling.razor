@@ -1,6 +1,7 @@
 ﻿@using System.Threading
 @using Microsoft.AspNetCore.Components.Rendering;
 @using Microsoft.JSInterop
+
 @typeparam T
 @inject IJSRuntime JsRuntime
 @implements IAsyncDisposable
@@ -51,11 +52,9 @@
     [JSInvokable]
     public async Task LoadMoreItems()
     {
-        if (_loadItemsTokenSource != null)
-            return;
+        if (_loadItemsTokenSource != null) return;
 
-        if (ItemsProvider == null)
-            return;
+        if (ItemsProvider == null) return;
 
         var currentItems = Items;
         var cancellationTokenSource = new CancellationTokenSource();
@@ -98,6 +97,7 @@
     public void InsertItem(int index, T item)
     {
         Items.Insert(index, item);
+        // StateHasChanged();
     }
 
     public async Task RefreshDataAsync()

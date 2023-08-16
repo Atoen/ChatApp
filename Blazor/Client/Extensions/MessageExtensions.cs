@@ -1,4 +1,6 @@
-﻿using Blazor.Client.Models;
+﻿using System.Globalization;
+using System.Runtime.InteropServices;
+using Blazor.Client.Models;
 using Blazor.Shared;
 using RestSharp;
 
@@ -6,25 +8,50 @@ namespace Blazor.Client.Extensions;
 
 public static class MessageExtensions
 {
-    public static async Task<MessageModel> ToModelAsync(this MessageDto message, IRestClient client)
+    public static MessageModel ToModel(this MessageDto message)
     {
         var model = new MessageModel
         {
             Author = message.Author.Username,
-            Content = message.Content,
-            Timestamp = message.Timestamp
+            Timestamp = message.Timestamp,
+            Content = message.Content
         };
 
-        if (message.Embed is { Type: EmbedType.Image })
+        if (message.Embed is { Type: EmbedType.Gif })
         {
             model.Embed = new EmbedModel
             {
-                Type = EmbedType.Image,
+                Type = message.Embed.Type,
                 Data =
                 {
                     { "Source", message.Embed["Uri"] }
                 }
             };
+        }
+
+        else if (message.Embed is { Type: EmbedType.Image })
+        {
+            model.Embed = new EmbedModel
+            {
+                Type = message.Embed.Type,
+                Data =
+                {
+                    { "Source", message.Embed["Uri"] },
+                    { "Preview", message.Embed["Preview"] }
+                }
+            };
+            
+            if (message.Embed.Data.TryGetValue("width", out var width) &&
+                message.Embed.Data.TryGetValue("height", out var height))
+            {
+                model.Embed.Data["Width"] = width;
+                model.Embed.Data["Height"] = height;
+            }
+            else
+            {
+                model.Embed.Data["Width"] = "auto";
+                model.Embed.Data["Height"] = "auto";
+            }
         }
 
         else if (message.Embed is { Type: EmbedType.File })
@@ -45,40 +72,7 @@ public static class MessageExtensions
             };
         }
 
-        else if ((message.Content.StartsWith("https://media.tenor.com/") ||
-            message.Content.StartsWith("https://media.giphy.com/")) &&
-            Uri.IsWellFormedUriString(message.Content, UriKind.Absolute))
-        {
-            if (await VerifyGifSource(message.Content, client))
-            {
-                model.Embed = new EmbedModel
-                {
-                    Type = EmbedType.Gif,
-                    Data =
-                    {
-                        { "Source", message.Content }
-                    }
-                };
-            }
-        }
-
         return model;
-    }
-
-    private static async Task<bool> VerifyGifSource(string source, IRestClient client)
-    {
-        var request = new RestRequest(source, Method.Head);
-
-        try
-        {
-            var response = await client.HeadAsync(request);
-
-            return response.IsSuccessStatusCode;
-        }
-        catch
-        {
-            return false;
-        }
     }
 
     private const string Pdf = "pdf";
@@ -102,6 +96,45 @@ public static class MessageExtensions
         if (Video.Contains(extension)) return FileType.Video;
 
         return FileType.Default;
+    }
+
+    public static string ConvertToFileSizeString(string value)
+    {
+        const long bytesPerKiloByte = 1024;
+        const long bytesPerMegaByte = 1024 * bytesPerKiloByte;
+        const long bytesPerGigaByte = 1024 * bytesPerMegaByte;
+
+        string formattedValue;
+        var bytes = long.Parse(value);
+
+        switch (bytes)
+        {
+            case < bytesPerKiloByte:
+            {
+                formattedValue = $"{bytes} B";
+                break;
+            }
+            case < bytesPerMegaByte:
+            {
+                var kiloBytes = (double)bytes / bytesPerKiloByte;
+                formattedValue = $"{kiloBytes.ToString("F2", CultureInfo.InvariantCulture)} kB";
+                break;
+            }
+            case < bytesPerGigaByte:
+            {
+                var megaBytes = (double)bytes / bytesPerMegaByte;
+                formattedValue = $"{megaBytes.ToString("F2", CultureInfo.InvariantCulture)} MB";
+                break;
+            }
+            default:
+            {
+                var gigaBytes = (double)bytes / bytesPerGigaByte;
+                formattedValue = $"{gigaBytes.ToString("F2", CultureInfo.InvariantCulture)} GB";
+                break;
+            }
+        }
+
+        return formattedValue;
     }
 }
 

@@ -20,7 +20,7 @@ public class MessageController : ControllerBase
     }
 
     [HttpGet]
-    //[Authorize]
+    [Authorize]
     public async IAsyncEnumerable<MessageDto> GetMessages(int offset = 0)
     {
         var messages = _context.Messages

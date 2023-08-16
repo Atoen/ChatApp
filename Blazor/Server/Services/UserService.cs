@@ -13,15 +13,33 @@ public class UserService
 {
     private readonly AppDbContext _dbContext;
     private readonly IHashService _hashService;
-    private readonly JwtTokenService _tokenService;
+    private readonly TokenService _tokenService;
     private readonly IValidator<UserCredentialsDto> _validator;
 
-    public UserService(AppDbContext dbContext, IHashService hashService, JwtTokenService tokenService, IValidator<UserCredentialsDto> validator)
+    public UserService(AppDbContext dbContext, IHashService hashService, TokenService tokenService, IValidator<UserCredentialsDto> validator)
     {
         _dbContext = dbContext;
         _hashService = hashService;
         _tokenService = tokenService;
         _validator = validator;
+    }
+
+    public async Task<OneOf<Success<User>, NotFound, Unauthorized>> VerifyRefreshTokenAsync(RefreshTokenRequest request)
+    {
+        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Username == request.Username);
+        if (user is null)
+        {
+            return new NotFound();
+        }
+
+        var isValid = _tokenService.VerifyRefreshToken(user, request.Token);
+
+        if (!isValid)
+        {
+            return new Unauthorized();
+        }
+
+        return new Success<User>(user);
     }
 
     public async Task<OneOf<Success<string>, NotFound, Unauthorized>> LoginAsync(UserCredentialsDto userCredentialsDto)
@@ -38,13 +56,11 @@ public class UserService
         {
             return new Unauthorized();
         }
+        
+        var refreshToken = _tokenService.CreateRefreshToken();
+        await AddRefreshToken(user, refreshToken);
 
-        var token = _tokenService.CreateTokenString(
-            new Claim(ClaimTypes.Name, user.Username),
-            new Claim(ClaimTypes.Role, "User"),
-            new Claim(ClaimTypes.Sid, user.Id.ToString()));
-
-        return new Success<string>(token);
+        return new Success<string>(refreshToken.Token);
     }
 
     public async Task<OneOf<Success<string>, Conflict, Error<List<ValidationFailure>>, Error<string>>> RegisterUser(UserCredentialsDto userCredentialsDto)
@@ -62,26 +78,30 @@ public class UserService
 
         var createResult = await CreateUser(userCredentialsDto);
 
-        return createResult.Match<OneOf<Success<string>, Conflict, Error<List<ValidationFailure>>, Error<string>>>(
-            user =>
-            {
-                var token = _tokenService.CreateTokenString(
-                    new Claim(ClaimTypes.Name, user.Username),
-                    new Claim(ClaimTypes.Role, "user"),
-                    new Claim(ClaimTypes.Sid, user.Id.ToString()));
+        if (createResult.TryPickT0(out var user, out var remainder))
+        {
+            var refreshToken = _tokenService.CreateRefreshToken();
+            await AddRefreshToken(user, refreshToken);
 
-                return new Success<string>(token);
-            },
+            return new Success<string>(refreshToken.Token);
+        }
+
+        return remainder.Match<OneOf<Success<string>, Conflict, Error<List<ValidationFailure>>, Error<string>>>(
             conflict => conflict,
             error => error);
+
+        // return createResult.Match<OneOf<Success<string>, Conflict, Error<List<ValidationFailure>>, Error<string>>>(
+        //     user => new Success<string>() ,
+        //     conflict => conflict,
+        //     error => error);
     }
 
     public async Task<OneOf<User, NotFound>> GetUser(ClaimsPrincipal claimsPrincipal)
     {
-        var idClaim = claimsPrincipal.Claims.FirstOrDefault(x => x.Type == ClaimTypes.Sid);
+        var idClaim = claimsPrincipal.Claims.FirstOrDefault(x => x.Type == JwtClaims.Uid);
         if (idClaim is null) return new NotFound();
 
-        var usernameClaim = claimsPrincipal.Claims.FirstOrDefault(x => x.Type == ClaimTypes.Name);
+        var usernameClaim = claimsPrincipal.Claims.FirstOrDefault(x => x.Type == JwtClaims.Username);
         if (usernameClaim is null) return new NotFound();
         
         var user = await _dbContext.Users.FindAsync(Guid.Parse(idClaim.Value));
@@ -101,10 +121,11 @@ public class UserService
 
         var user = new User
         {
-            Username = userCredentialsDto.Username,
+            Username = userCredentialsDto.Username!,
             PasswordHash = hash,
             Salt = salt,
-            Id = Guid.NewGuid()
+            Id = Guid.NewGuid(),
+            RefreshTokens = new List<RefreshToken>()
         };
 
         await _dbContext.Users.AddAsync(user);
@@ -124,6 +145,16 @@ public class UserService
         }
 
         return user;
+    }
+
+    private async Task AddRefreshToken(User user, RefreshToken refreshToken)
+    {
+        var dbToken = refreshToken.CloneAndHashData();
+        
+        user.RefreshTokens.Add(dbToken);
+        _dbContext.Update(user);
+
+        await _dbContext.SaveChangesAsync();
     }
 }
 

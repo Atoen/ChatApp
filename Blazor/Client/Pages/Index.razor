@@ -1,26 +1,318 @@
 ﻿@page "/"
+@using Blazored.LocalStorage
+@using RestSharp
+@using System.Text.Json
+@using Blazor.Client.Models
+@using Blazor.Client.Services
+@using Blazor.Shared
+@using System.Text
+@using System.Security.Cryptography
+@using System.Net
 
 @inject NavigationManager Navigation
 
-<PageTitle>Index</PageTitle>
+<PageTitle>Squadtalk</PageTitle>
 
-<h1>Hello, world!</h1>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Audiowide">
 
-Welcome to your new app.
+<div class="landing-background">
+    <div class="landing-menu">
+        <div class="landing-title">Squadtalk</div>
 
-<SurveyPrompt Title="How is Blazor working for you?" />
+        @if (_needToLogIn && _sessionDataPresent)
+        {
+            <p style="color: whitesmoke; margin-bottom: 0;">Your session has expired.</p>
+            <p style="color: whitesmoke;">Please log in again.</p>
+        }
+
+        <EditForm Model="_userCredentials" OnValidSubmit="FormCallback">
+            <DataAnnotationsValidator/>
+
+            <p>
+                <InputText @bind-Value="_userCredentials.Username" placeholder="Username"/>
+            </p>
+            <p>
+                <InputText @bind-Value="_userCredentials.Password" placeholder="Password" type="password"/>
+            </p>
+
+            <ValidationSummary/>
+
+            <p style="color:@_color;">@_info</p>
+
+            <p>
+                <button class="btn btn-primary" type="submit"
+                        @onclick="() => _action = Action.LogIn"
+                        disabled="@_working">
+                    Log In
+                </button>
+                <button class="btn btn-primary" type="submit"
+                        @onclick="() => _action = Action.SignUp"
+                        disabled="@_working">
+                    Sign Up
+                </button>
+            </p>
+            <p class="remember-checkbox">
+                Remember me <InputCheckbox @bind-Value="_rememberUser"/>
+            </p>
+        </EditForm>
+    </div>
+</div>
+
+<style>
+
+    .landing-background {
+        display: flex;
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100vw;
+        height: 100vh;
+        justify-content: center;
+        align-items: center;
+        background: rgb(26,85,134);
+        background: linear-gradient(0deg, rgba(26,85,134,1) 0%, rgba(111,0,163,1) 100%);
+    }
+
+    .landing-menu {
+        background: #212121;
+        border-radius: 10px;
+        padding: 20px;
+        max-width: 300px;
+    }
+
+    .landing-menu * {
+        color: whitesmoke;
+        border: none;
+        font-family: Verdana, sans-serif;
+    }
+
+    .landing-title {
+        background: linear-gradient(to right, #9d00e7, #117bd2);
+        -webkit-background-clip: text;
+        background-clip: text; 
+        color: transparent;
+        font-size: 40px;
+        font-weight: bold;
+        font-family: "Audiowide", sans-serif;
+        margin-bottom: 10px;
+    }
+
+    button {
+        border: none;
+        margin: 5px 10px 0;
+        width: 100px;
+    }
+
+    input {
+        border-radius: 5px;
+        width: 100%;
+        background: #323232;
+        padding: 5px;
+    }
+
+    input:focus {
+        outline: none;
+    }
+
+    ::-ms-reveal {
+        filter: invert(100%);
+    }
+
+    p {
+        display: flex;
+        justify-content: center;
+    }
+
+    .remember-checkbox {
+        white-space: nowrap;
+        padding: 0 20px;
+    }
+
+</style>
+
+@inject ILocalStorageService LocalStorageService
+@inject RestClient RestClient
+@inject JWTService JwtService
 
 @code
 {
-    protected override async Task OnInitializedAsync()
-    {
-        await CheckCredentials();
+    private readonly UserCredentials _userCredentials = new();
 
-        Navigation.NavigateTo("login");
+    private bool _sessionDataPresent;
+    private bool _needToLogIn;
+
+    private bool _rememberUser;
+    private bool _working;
+
+    private const string RememberUser = "Remember";
+    private const string Username = "Username";
+    private const string Token = "Token";
+
+    private const string Red = "#FF0000";
+    private const string White = "#0000000";
+    
+    private string? _info;
+    private string? _color;
+
+    private enum Action
+    {
+        LogIn,
+        SignUp
     }
 
-    private Task CheckCredentials()
+    private Action _action;
+
+    protected override async Task OnInitializedAsync()
     {
-        return Task.CompletedTask;
+        var authenticated = await TryAuthenticate();
+        _needToLogIn = !authenticated;
+
+        if (authenticated)
+        {
+            Navigation.NavigateTo("app");
+            return;
+        }
+
+        if (await LocalStorageService.ContainKeyAsync(Username))
+        {
+            _userCredentials.Username = await LocalStorageService.GetItemAsync<string>(Username);
+        }
+        
+        if (await LocalStorageService.ContainKeyAsync(RememberUser))
+        {
+            _rememberUser = await LocalStorageService.GetItemAsync<bool>(RememberUser);
+        }
+    }
+
+    private async Task<bool> TryAuthenticate()
+    {
+        _working = true;
+        var success = await AuthenticateUsingToken();
+        _working = false;
+
+        return success;
+    }
+
+    private async Task<bool> AuthenticateUsingToken()
+    {
+        if (!await LocalStorageService.ContainKeyAsync(RememberUser)) return false;
+
+        var remember = await LocalStorageService.GetItemAsync<bool>(RememberUser);
+        if (!remember) return false;
+
+        if (!await LocalStorageService.ContainKeyAsync(Token)) return false;
+        if (!await LocalStorageService.ContainKeyAsync(Username)) return false;
+
+        var token = await LocalStorageService.GetItemAsync<string>(Token);
+        var username = await LocalStorageService.GetItemAsync<string>(Username);
+        _sessionDataPresent = true;
+
+        var success = await OpenSession(username, token);
+
+        return success;
+    }
+
+    private async Task<bool> OpenSession(string username, string token)
+    {
+        var request = new RestRequest("api/user/token", Method.Post);
+        request.AddBody(new RefreshTokenRequest
+        {
+            Username = username,
+            Token = token
+        });
+
+        var response = await RestClient.ExecuteAsync(request);
+        if (!response.IsSuccessStatusCode) return false;
+
+        try
+        {
+            var authToken = JsonSerializer.Deserialize<string>(response.Content!)!;
+            JwtService.SetFirstToken(authToken);
+
+            return true;
+        }
+        catch (Exception e)
+        {
+            return false;
+        }
+    }
+
+    private async Task FormCallback()
+    {
+        _working = true;
+
+        await LocalStorageService.SetItemAsync(RememberUser, _rememberUser);
+
+        if (_rememberUser)
+        {
+            await LocalStorageService.SetItemAsync(Username, _userCredentials.Username);
+        }
+
+        var (endpoint, message) = _action == Action.LogIn
+            ? ("api/user/login", "Logged in successfully")
+            : ("api/user/signup", "Signed up successfully");
+
+        var token = await AuthenticateAsync(endpoint, message);
+
+        if (token is null)
+        {
+            _working = false;
+            return;
+        }
+        
+        await LocalStorageService.SetItemAsync(Token, token);
+        var success = await OpenSession(_userCredentials.Username!, token);
+
+        if (success)
+        {
+            Navigation.NavigateTo("app");
+        }
+
+        _working = false;
+    }
+
+    private async Task<string?> AuthenticateAsync(string endpoint, string successMessage, CancellationToken cancellationToken = default)
+    {
+        _color = White;
+        _info = string.Empty;
+
+        var request = new RestRequest(endpoint, Method.Post);
+
+        var input = Encoding.UTF8.GetBytes(_userCredentials.Password!);
+        var hash = SHA256.HashData(input);
+
+        var dto = new UserCredentialsDto { Username = _userCredentials.Username, PasswordHash = Convert.ToBase64String(hash) };
+        request.AddBody(dto);
+
+        try
+        {
+            var response = await RestClient.PostAsync(request, cancellationToken);
+            if (response.IsSuccessStatusCode)
+            {
+                _info = successMessage;
+                return JsonSerializer.Deserialize<string>(response.Content!);
+            }
+
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                _color = Red;
+                _info = $"User {_userCredentials.Username} not found";
+            }
+
+            return null;
+        }
+        catch (HttpRequestException e)
+        {
+            _color = Red;
+            _info = e.StatusCode switch
+            {
+                HttpStatusCode.Conflict => $"Username {_userCredentials.Username} is already taken",
+                HttpStatusCode.Unauthorized => "Invalid username or password",
+                null => "Unable to connect to the server",
+                _ => $"Server error: {e.StatusCode}"
+                };
+
+            return null;
+        }
     }
 }

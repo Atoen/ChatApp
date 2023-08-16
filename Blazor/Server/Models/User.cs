@@ -8,8 +8,7 @@ public class User
     public required string Username { get; set; }
     public required byte[] Salt { get; set; }
     public required string PasswordHash { get; set; }
-
-    // public ICollection<Message> Messages { get; set; } = new List<Message>();
+    public required List<RefreshToken> RefreshTokens { get; set; }
 
     public MessageAuthorDto ToDto()
     {
@@ -20,9 +19,3 @@ public class User
         };
     }
 }
-
-//public class MessageAuthorDto
-//{
-//    public required string Username { get; set; }
-//    public required Guid Id { get; set; }
-//}

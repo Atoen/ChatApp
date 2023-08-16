@@ -2,148 +2,95 @@
 
 @using Blazor.Client.Models
 @using Blazor.Client.Services
-@using Blazor.Shared
-@using Microsoft.Extensions.Logging
-@using System.Globalization
+@using Blazored.LocalStorage
+@using RestSharp
+@implements IAsyncDisposable
+
+<PageTitle>Squadtalk</PageTitle>
 
 <link rel="stylesheet" href="css/textbox.css" />
 <link rel="stylesheet" href="css/messageTemplate.css" />
+<link rel="stylesheet" href="css/uploadinfo.css" />
 
 <PageTitle>title</PageTitle>
 
-<div class="message-listbox">
-    <InfiniteScrolling ItemsProvider="GetMessagePage" @ref="_scrollRef">
-        <ItemTemplate Context="message">
-            <MessageTemplate Model="message"/>
-        </ItemTemplate>
+<div style="background: #424242;">
+    <div class="message-listbox">
+        <InfiniteScrolling ItemsProvider="GetMessagePage" @ref="_scrollRef">
+            <ItemTemplate>
+                <MessageTemplate Model="context"/>
+            </ItemTemplate>
 
-        <LoadingTemplate>
-            <div><span class="oi oi-reload spinner"></span> Loading more items...</div>
-        </LoadingTemplate>
-    </InfiniteScrolling>
-</div>
-
-<div class="text-area">
-    <textarea class="textbox"
-        rows="1"
-        placeholder="Type message"
-        @bind="_userMessage"
-        @bind:event="oninput"
-        @onkeydown="TextBoxCallback"
-        @onkeydown:preventDefault="@_preventDefaultEnter">
-    </textarea>
-
-    <label class="add-button" for="filePicker">
-        <svg id="Layer_1" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" data-name="Layer 1">
-            <path d="m12 0a12 12 0 1 0 12 12 12.013 12.013 0 0 0 -12-12zm0 22a10 10 0 1 1 10-10 10.011 10.011 0 0 1 -10 10zm5-10a1 1 0 0 1 -1 1h-3v3a1 1 0 0 1 -2 0v-3h-3a1 1 0 0 1 0-2h3v-3a1 1 0 0 1 2 0v3h3a1 1 0 0 1 1 1z"/>
-        </svg>
-    </label>
-
-    <label class="send-button" @onclick="SendMessage">
-        <svg xmlns="http://www.w3.org/2000/svg" id="Layer_2" data-name="Layer 1" viewBox="0 0 24 24">
-            <path d="m.172,3.708C-.216,2.646.076,1.47.917.713,1.756-.041,2.951-.211,3.965.282l18.09,8.444c.97.454,1.664,1.283,1.945,2.273H4.048L.229,3.835c-.021-.041-.04-.084-.057-.127Zm3.89,9.292L.309,20.175c-.021.04-.039.08-.054.122-.387,1.063-.092,2.237.749,2.993.521.467,1.179.708,1.841.708.409,0,.819-.092,1.201-.279l18.011-8.438c.973-.456,1.666-1.288,1.945-2.28H4.062Z"/>
-        </svg>
-    </label>
+            <LoadingTemplate>
+                <div>
+                    <span class="oi oi-reload spinner"></span> Loading more items...
+                </div>
+            </LoadingTemplate>
+        </InfiniteScrolling>
+    </div>
     
-    <InputFile style="display: none" id="filePicker" />
+    <UploadInfo/>
+
+    <TextBox SignalRService="SignalRService"/>
+
 </div>
 
-@if (_uploading)
-{
-    <div>@_uploadProgress %</div>
-}
+<div id="overlay">Drop your file here!</div>
+
+<div>
+    <button @onclick="() => LogOut(false)">Log out</button>
+    <button @onclick="()=> LogOut(true)">Log out (all sessions)</button>
+</div>
 
 <style>
     .page {
         height: 100vh;
         background: linear-gradient(0, rgba(34,193,195,1) 0, rgba(253,187,45,1) 100%);
     }
+
+    #overlay {
+        display: none;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: #000000;
+        background-color: rgba(0, 0, 0, 0.5);
+        color: white;
+        font-size: 24px;
+        text-align: center;
+        padding-top: 30%;
+    }
 </style>
 
-@inject ILogger<App> Logger
-@inject IJSRuntime JsRuntime
 @inject JWTService JwtService
 @inject SignalRService SignalRService
 @inject MessageService MessageService
+@inject NavigationManager NavigationManager
+@inject RestClient RestClient
+@inject ILocalStorageService LocalStorageService
 
-@code
-{
-    private string? _userMessage;
-    private bool _preventDefaultEnter;
-
+@code {
     private InfiniteScrolling<MessageModel> _scrollRef = null!;
-    private IJSObjectReference? _module;
-
-    private string? _uploadProgress;
-    private bool _uploading;
 
     protected override async Task OnInitializedAsync()
     {
-        Console.WriteLine(JwtService.Token);
-
+        if (!JwtService.IsTokenSet)
+        {
+            NavigationManager.NavigateTo("");
+            return;
+        }
+        
         var result = await SignalRService.ConnectAsync();
         Console.WriteLine(result);
 
-        MessageService.MessageReceived = model =>
-        {
-            _scrollRef.InsertItem(0, model);
-            StateHasChanged();
-        };
+        MessageService.MessageReceived = MessageServiceMessageReceived;
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    private void MessageServiceMessageReceived(MessageModel model)
     {
-        if (firstRender)
-        {
-            _module = await JsRuntime.InvokeAsync<IJSObjectReference>("import", "./FileTransfer.js");
-            var currentComponentReference = DotNetObjectReference.Create(this);
-            await _module.InvokeVoidAsync("initializeUpload", currentComponentReference);
-        }
-    }
-
-    private async Task TextBoxCallback(KeyboardEventArgs obj)
-    {
-        _preventDefaultEnter = false;
-
-        if (obj is { Key: "Enter", ShiftKey: false })
-        {
-            await SendMessage();
-        }
-    }
-
-    private async Task SendMessage()
-    {
-        var text = _userMessage;
-        _userMessage = string.Empty;
-        _preventDefaultEnter = true;
-
-        if (!string.IsNullOrWhiteSpace(text))
-        {
-            var result = await SignalRService.SendMessageAsync(text, CancellationToken.None);
-        }
-    }
-
-    [JSInvokable] public async Task<string> GetJwt() => await Task.FromResult(JwtService.Token);
-
-    [JSInvokable]
-    public void UploadStarted()
-    {
-        _uploading = true;
-        StateHasChanged();
-    }
-
-    [JSInvokable]
-    public void UploadStopped()
-    {
-        _uploading = false;
-        StateHasChanged();
-    }
-
-    [JSInvokable]
-    public void UploadProgressed(string progress)
-    {
-        _uploadProgress = progress;
-
+        _scrollRef.InsertItem(0, model);
         StateHasChanged();
     }
 
@@ -152,9 +99,41 @@
         var page = await MessageService.GetMessagePageAsync(request.StartIndex);
         if (_scrollRef.Items.Count > 0 && page.Count > 0)
         {
-            MessageService.CheckIfIsFirst(_scrollRef.Items[0], page[0]);
+            MessageService.CheckIfIsFirst(_scrollRef.Items[^1], page[0]);
         }
 
         return page;
+    }
+
+    private async Task LogOut(bool invalidateAllSessions = false)
+    {
+        var request = new RestRequest("api/user/logout", Method.Post);
+        var currentRefreshToken = await LocalStorageService.GetItemAsync<string>("Token");
+
+        request.AddHeader("Authorization", $"Bearer {JwtService.Token}");
+
+        if (invalidateAllSessions)
+        {
+            request.AddQueryParameter("invalidateAllSessions", invalidateAllSessions);
+        }
+        else
+        {
+            request.AddBody($"\"{currentRefreshToken}\"");
+        }
+        
+        await RestClient.ExecuteAsync(request);
+        
+        await LocalStorageService.RemoveItemAsync("Token");
+        JwtService.ClearToken();
+        
+        NavigationManager.NavigateTo("");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await JwtService.CancelPendingRequests();
+
+        await SignalRService.DisposeAsync();
+        await _scrollRef.DisposeAsync();
     }
 }

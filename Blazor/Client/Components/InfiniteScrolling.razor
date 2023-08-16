@@ -6,9 +6,9 @@
 @inject IJSRuntime JsRuntime
 @implements IAsyncDisposable
 
-@foreach (var item in Items)
+@if (ItemTemplate != null)
 {
-    @if (ItemTemplate != null)
+    foreach (var item in Items)
     {
         @ItemTemplate(item)
     }
@@ -97,7 +97,6 @@
     public void InsertItem(int index, T item)
     {
         Items.Insert(index, item);
-        // StateHasChanged();
     }
 
     public async Task RefreshDataAsync()

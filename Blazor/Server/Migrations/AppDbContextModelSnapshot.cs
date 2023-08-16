@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace HttpServer.Migrations
+namespace Blazor.Server.Migrations
 {
     [DbContext(typeof(AppDbContext))]
     partial class AppDbContextModelSnapshot : ModelSnapshot
@@ -19,7 +19,7 @@ namespace HttpServer.Migrations
                 .HasAnnotation("ProductVersion", "7.0.7")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
-            modelBuilder.Entity("HttpServer.Models.Message", b =>
+            modelBuilder.Entity("Blazor.Server.Models.Message", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -42,7 +42,7 @@ namespace HttpServer.Migrations
                     b.ToTable("Messages");
                 });
 
-            modelBuilder.Entity("HttpServer.Models.User", b =>
+            modelBuilder.Entity("Blazor.Server.Models.User", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -65,15 +65,15 @@ namespace HttpServer.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("HttpServer.Models.Message", b =>
+            modelBuilder.Entity("Blazor.Server.Models.Message", b =>
                 {
-                    b.HasOne("HttpServer.Models.User", "Author")
+                    b.HasOne("Blazor.Server.Models.User", "Author")
                         .WithMany()
                         .HasForeignKey("AuthorId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.OwnsOne("HttpServer.Models.Embed", "Embed", b1 =>
+                    b.OwnsOne("Blazor.Server.Models.Embed", "Embed", b1 =>
                         {
                             b1.Property<int>("MessageId")
                                 .HasColumnType("int");
@@ -96,6 +96,41 @@ namespace HttpServer.Migrations
                     b.Navigation("Author");
 
                     b.Navigation("Embed");
+                });
+
+            modelBuilder.Entity("Blazor.Server.Models.User", b =>
+                {
+                    b.OwnsMany("Blazor.Server.Models.RefreshToken", "RefreshTokens", b1 =>
+                        {
+                            b1.Property<Guid>("UserId")
+                                .HasColumnType("char(36)");
+
+                            b1.Property<int>("Id")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("int");
+
+                            b1.Property<DateTime>("Created")
+                                .HasColumnType("datetime(6)");
+
+                            b1.Property<DateTime>("Expires")
+                                .HasColumnType("datetime(6)");
+
+                            b1.Property<DateTime?>("Revoked")
+                                .HasColumnType("datetime(6)");
+
+                            b1.Property<string>("Token")
+                                .IsRequired()
+                                .HasColumnType("longtext");
+
+                            b1.HasKey("UserId", "Id");
+
+                            b1.ToTable("RefreshToken");
+
+                            b1.WithOwner()
+                                .HasForeignKey("UserId");
+                        });
+
+                    b.Navigation("RefreshTokens");
                 });
 #pragma warning restore 612, 618
         }

@@ -47,7 +47,7 @@ public class FileController : ControllerBase
             var contentDisposition = new ContentDisposition
             {
                 FileName = name,
-                Inline = false
+                Inline = true
             };
 
             Response.Headers.Add("Content-Disposition", contentDisposition.ToString());

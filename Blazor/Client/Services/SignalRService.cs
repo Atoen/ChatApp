@@ -1,10 +1,11 @@
-﻿using Blazor.Shared;
+﻿using System.Reflection;
+using Blazor.Shared;
 using FluentResults;
 using Microsoft.AspNetCore.SignalR.Client;
 
 namespace Blazor.Client.Services;
 
-public sealed class SignalRService
+public sealed class SignalRService : IAsyncDisposable
 {
     private readonly MessageService _messageService;
     private readonly JWTService _jwtService;
@@ -15,7 +16,7 @@ public sealed class SignalRService
     private const string Reconnecting = "Reconnecting";
     private const string Online = "Reconnecting";
     private const string Disconnected = "Reconnecting";
-
+    
     public SignalRService(MessageService messageService, JWTService jwtService)
     {
         _messageService = messageService;
@@ -25,7 +26,7 @@ public sealed class SignalRService
             .WithUrl("http://squadtalk.ddns.net/chat",
                 options =>
                 {
-                    options.AccessTokenProvider = () => Task.FromResult<string?>(jwtService.Token);
+                    options.AccessTokenProvider = () => Task.FromResult<string?>(_jwtService.Token);
                 })
             .WithAutomaticReconnect()
             .Build();
@@ -82,9 +83,14 @@ public sealed class SignalRService
             return Task.CompletedTask;
         };
 
-        _connection.On<MessageDto>("ReceiveMessage", async message =>
+        _connection.On<MessageDto>("ReceiveMessage", message =>
         {
-            await _messageService.HandleIncomingMessage(message);
+            _messageService.HandleIncomingMessage(message);
         });
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await _connection.DisposeAsync();
     }
 }

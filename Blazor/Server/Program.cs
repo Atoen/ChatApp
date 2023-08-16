@@ -1,36 +1,3 @@
-//using Microsoft.AspNetCore.ResponseCompression;
-
-//var builder = WebApplication.CreateBuilder(args);
-
-//// Add services to the container.
-
-//builder.Services.AddControllersWithViews();
-//builder.Services.AddRazorPages();
-
-//var app = builder.Build();
-
-//// Configure the HTTP request pipeline.
-//if (app.Environment.IsDevelopment())
-//{
-//    app.UseWebAssemblyDebugging();
-//}
-//else
-//{
-//    app.UseExceptionHandler("/Error");
-//}
-
-//app.UseBlazorFrameworkFiles();
-//app.UseStaticFiles();
-
-//app.UseRouting();
-
-
-//app.MapRazorPages();
-//app.MapControllers();
-//app.MapFallbackToFile("index.html");
-
-//app.Run();
-
 using Blazor.Server.Health;
 using Blazor.Server.Hubs;
 using Blazor.Server.Identity;
@@ -38,7 +5,6 @@ using Blazor.Server.Models;
 using Blazor.Server.Services;
 using Blazor.Server.Setup;
 using Blazor.Server.Validators;
-using Microsoft.AspNetCore.ResponseCompression;
 using FluentValidation;
 using HealthChecks.UI.Client;
 using Microsoft.EntityFrameworkCore;
@@ -46,16 +12,15 @@ using LiteX.HealthChecks.MariaDB;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using tusdotnet;
+using tusdotnet.Helpers;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<KestrelServerOptions>(options =>
 {
-    // options.Limits.MaxRequestBufferSize = null;
-    options.Limits.MaxRequestBodySize = 100 * 1024 * 1024;
+    options.Limits.MaxRequestBodySize = 30 * 1024 * 1024;
 });
 
-var corsPolicy = "CorsPolicy";
 
 builder.ConfigureAuthentication();
 builder.Services.AddAuthorization(options =>
@@ -66,12 +31,7 @@ builder.Services.AddAuthorization(options =>
     });
 });
 
-var tusHeaders = new[]
-{
-    "Tus-Resumable", "Upload-Length", "Upload-Metadata", "Upload-Offset", "Location", "Upload-Concat",
-    "Upload-Checksum", "Tus-Version", "Tus-Extension"
-};
-
+const string corsPolicy = "CorsPolicy";
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(name: corsPolicy, policy =>
@@ -79,7 +39,7 @@ builder.Services.AddCors(options =>
         policy.AllowAnyOrigin()
             .AllowAnyHeader()
             .AllowAnyMethod()
-            .WithExposedHeaders("*");
+            .WithExposedHeaders(CorsHelper.GetExposedHeaders());
     });
 });
 
@@ -91,6 +51,7 @@ builder.Services.AddHealthChecks()
 
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
+builder.Services.AddHttpClient();
 
 var serverVersion = new MySqlServerVersion(connectionString);
 builder.Services.AddDbContext<AppDbContext>(optionsBuilder => optionsBuilder
@@ -101,11 +62,13 @@ builder.Services.AddDbContext<AppDbContext>(optionsBuilder => optionsBuilder
 builder.Services.AddValidatorsFromAssemblyContaining(typeof(MessageValidator));
 
 builder.Services.AddTransient<IHashService, Argon2HashService>();
-builder.Services.AddSingleton<JwtTokenService>();
+builder.Services.AddScoped<TokenService>();
 builder.Services.AddSingleton<TusDiskStoreHelper>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<MessageService>();
 builder.Services.AddScoped<EmbedService>();
+builder.Services.AddScoped<GifSourceVerifierService>();
+builder.Services.AddScoped<ImagePreviewGeneratorService>();
 
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();

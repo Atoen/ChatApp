@@ -26,12 +26,17 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     <PackageReference Include="OneOf" Version="3.0.243" />
     <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="7.0.0" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.0.1" />
     <PackageReference Include="tusdotnet" Version="2.7.1" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Client\Blazor.Client.csproj" />
     <ProjectReference Include="..\Shared\Blazor.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Migrations\" />
   </ItemGroup>
 
 

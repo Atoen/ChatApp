@@ -29,9 +29,9 @@ public sealed class MessageService
         });
     }
 
-    public async Task HandleIncomingMessage(MessageDto messageDto)
+    public void HandleIncomingMessage(MessageDto messageDto)
     {
-        var formatted = await FormatMessageAsync(messageDto);
+        var formatted = FormatMessage(messageDto);
         _lastMessage = formatted;
 
         MessageReceived?.Invoke(formatted);
@@ -44,16 +44,16 @@ public sealed class MessageService
         _restAuthenticator.SetBearerToken(_jwtService.Token);
         var restRequest = new RestRequest($"api/Message?offset={pageOffset}");
         var response = await _restClient.GetAsync<List<MessageDto>>(restRequest);
+        var responseCount = response!.Count;
         
-        var page = new List<MessageModel>(response!.Count);
-        foreach (var dto in response)
+        var page = new MessageModel[responseCount];
+
+        for (var i = responseCount - 1; i >= 0; i--)
         {
-            var model = await FormatMessageAsync(dto);
-            page.Add(model);
+            var model = FormatMessage(response[i]);
+            page[i] = model;
             _lastMessage = model;
         }
-
-        if (pageOffset == 0) _lastMessage = page[^1];
 
         return page;
     }
@@ -64,9 +64,9 @@ public sealed class MessageService
                            previous.Timestamp.Subtract(next.Timestamp) > _firstMessageTimeSpan;
     }
 
-    private async Task<MessageModel> FormatMessageAsync(MessageDto messageDto)
+    private MessageModel FormatMessage(MessageDto messageDto)
     {
-        var model = await messageDto.ToModelAsync(_restClient);
+        var model = messageDto.ToModel();
 
         if (_lastMessage is null)
         {

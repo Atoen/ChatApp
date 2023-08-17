@@ -1,4 +1,5 @@
 ﻿using System.Buffers;
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using SixLabors.ImageSharp.Formats.Pbm;
@@ -12,38 +13,72 @@ namespace Blazor.Server.Services;
 
 public class ImagePreviewGeneratorService
 {
+    private readonly ILogger<ImagePreviewGeneratorService> _logger;
     private readonly TusDiskStore _tusStore;
 
     public static int MaxWidth { get; set; } = 700;
     public static int MaxHeight { get; set; } = 500;
 
-    public ImagePreviewGeneratorService(TusDiskStoreHelper diskStoreHelper)
+    [Flags]
+    public enum ResizingDimension
     {
+        None,
+        Width,
+        Height,
+        Both,
+    }
+
+    public ImagePreviewGeneratorService(TusDiskStoreHelper diskStoreHelper, ILogger<ImagePreviewGeneratorService> logger)
+    {
+        _logger = logger;
         _tusStore = new TusDiskStore(diskStoreHelper.Path);
     }
 
-    public async Task<string> CreateImagePreviewAsync(ITusFile imageFile, CancellationToken cancellationToken)
+    public async Task<(string id, int width, int height)> CreateImagePreviewAsync(ITusFile imageFile, ResizingDimension resizingDimension, CancellationToken cancellationToken)
     {
+        var start = Stopwatch.GetTimestamp();
+        
         var imageData = await imageFile.GetContentAsync(cancellationToken);
         var metadata = await imageFile.GetMetadataAsync(cancellationToken);
         using var image = await Image.LoadAsync(imageData, cancellationToken);
-        
-        image.Mutate(x => x.Resize(MaxWidth, 0, KnownResamplers.NearestNeighbor));
 
-        await using var stream = new MemoryStream();
+        _logger.LogInformation("Original image size: {Size}", image.Size);
+
+        var loaded = Stopwatch.GetTimestamp();
+        _logger.LogInformation("Loaded image in {Time}", Stopwatch.GetElapsedTime(start, loaded));
+
+        var (targetWidth, targetHeight) = resizingDimension switch
+        {
+            ResizingDimension.Width => (MaxWidth, 0),
+            ResizingDimension.Height => (0, MaxHeight),
+            ResizingDimension.Both => (MaxWidth, MaxHeight),
+            _ => throw new ArgumentOutOfRangeException(nameof(resizingDimension), resizingDimension, null)
+        };
+
+        image.Mutate(x => x.Resize(targetWidth, targetHeight, KnownResamplers.NearestNeighbor));
+
+        var resized = Stopwatch.GetTimestamp();
+        _logger.LogInformation("Resized image in {Time}", Stopwatch.GetElapsedTime(loaded, resized));
+        _logger.LogInformation("Resized image size: {Size}", image.Size);
+
+        using var stream = new MemoryStream();
         await image.SaveAsync(stream, new PngEncoder(), cancellationToken);
         stream.Seek(0, SeekOrigin.Begin);
 
-        var meta = CreateMetadata(metadata);
-        var id = await _tusStore.CreateFileAsync(stream.Length, meta, cancellationToken);
+        var formattedMetadata = FormatMetadata(metadata);
+        var id = await _tusStore.CreateFileAsync(stream.Length, formattedMetadata, cancellationToken);
         
         await _tusStore.SetUploadLengthAsync(id, stream.Length, cancellationToken);
         await _tusStore.AppendDataAsync(id, stream, cancellationToken);
 
-        return id;
+        var saved = Stopwatch.GetTimestamp();
+        _logger.LogInformation("Saved image preview in {Time}", Stopwatch.GetElapsedTime(resized, saved));
+        _logger.LogInformation("Created preview in {Time}", Stopwatch.GetElapsedTime(start, saved));
+        
+        return (id, image.Width, image.Height);
     }
 
-    private string CreateMetadata(Dictionary<string, Metadata> metadata)
+    private string FormatMetadata(Dictionary<string, Metadata> metadata)
     {
         var filename = metadata["filename"].GetBytes();
         var filetype = "image/png"u8;

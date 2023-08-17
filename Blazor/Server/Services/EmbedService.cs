@@ -1,7 +1,9 @@
-﻿using System.Text;
+﻿using System;
+using System.Text;
 using Blazor.Server.Models;
 using Blazor.Shared;
 using tusdotnet.Interfaces;
+using tusdotnet.Models;
 
 namespace Blazor.Server.Services;
 
@@ -15,7 +17,7 @@ public class EmbedService
         _previewGeneratorService = previewGeneratorService;
     }
 
-    public async Task<Embed> CreateFileEmbed(ITusFile file, HttpContext context)
+    public async Task<Embed> CreateEmbed(ITusFile file, HttpContext context)
     {
         var metadata = await file.GetMetadataAsync(context.RequestAborted);
 
@@ -40,25 +42,46 @@ public class EmbedService
         var width = metadata["width"].GetString(Encoding.UTF8);
         var height = metadata["height"].GetString(Encoding.UTF8);
 
-        var preview = uri;
+        return await CreateImageEmbed(file, uri, width, height, context);
+    }
+
+
+    private async Task<Embed> CreateImageEmbed(ITusFile file, string uri, string width, string height, HttpContext context)
+    {
+        var data = new Dictionary<string, string>
+        {
+            { "Uri", uri },
+            { "Width", width },
+            { "Height", height },
+            { "Preview", uri }
+        };
 
         var (widthInt, heightInt) = (int.Parse(width), int.Parse(height));
-        if (widthInt > ImagePreviewGeneratorService.MaxWidth || heightInt > ImagePreviewGeneratorService.MaxHeight)
+
+        var dimension = ImagePreviewGeneratorService.ResizingDimension.None;
+
+        if (widthInt > ImagePreviewGeneratorService.MaxWidth)
         {
-            var previewId = await _previewGeneratorService.CreateImagePreviewAsync(file, context.RequestAborted);
-            preview = CreateUri(previewId, context);
+            dimension = ImagePreviewGeneratorService.ResizingDimension.Width;
+        }
+        if (heightInt > ImagePreviewGeneratorService.MaxHeight)
+        {
+            dimension |= ImagePreviewGeneratorService.ResizingDimension.Height;
+        }
+
+        if (dimension != ImagePreviewGeneratorService.ResizingDimension.None)
+        {
+            var (previewId, previewWidth, previewHeight) = await _previewGeneratorService.CreateImagePreviewAsync(file, dimension, context.RequestAborted);
+
+            data["Preview"] = CreateUri(previewId, context);
+            data["Width"] = previewWidth.ToString();
+            data["Height"] = previewHeight.ToString();
         }
 
         return new Embed
         {
             Type = EmbedType.Image,
-            Data = new Dictionary<string, string>
-            {
-                { "Preview", preview },
-                { "Uri", uri },
-                { "Width", width },
-                { "Height", height }
-            }
+            Data = data
         };
     }
 

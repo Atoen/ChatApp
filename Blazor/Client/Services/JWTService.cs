@@ -48,6 +48,7 @@ public sealed class JWTService
 			await _updateTask;
 		}
 
+		_cancellationTokenSource.Dispose();
 		_cancellationTokenSource = new CancellationTokenSource();
 	}
 

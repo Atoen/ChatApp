@@ -1,5 +1,18 @@
 <!DOCTYPE html>
 <script src="tus.min.js"></script>
+<script>
+    window.ImagePlaceholder = {
+        handler: function (image) {
+            
+            image.style.display = 'block';
+
+            const parent = image.parentNode;
+            const placeholder = parent.querySelector('first-child');
+
+            placeholder.style.display = 'none';
+        }
+    }
+</script>
 
 <html lang="en">
 

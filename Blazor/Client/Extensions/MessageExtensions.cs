@@ -41,8 +41,8 @@ public static class MessageExtensions
                 }
             };
             
-            if (message.Embed.Data.TryGetValue("width", out var width) &&
-                message.Embed.Data.TryGetValue("height", out var height))
+            if (message.Embed.Data.TryGetValue("Width", out var width) &&
+                message.Embed.Data.TryGetValue("Height", out var height))
             {
                 model.Embed.Data["Width"] = width;
                 model.Embed.Data["Height"] = height;

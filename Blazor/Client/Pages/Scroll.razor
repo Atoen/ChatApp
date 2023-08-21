@@ -1,6 +1,4 @@
 ﻿@page "/infinite-scrolling"
-@using Blazor.Client.Models
-@using Blazor.Shared
 @using RestSharp
 
 <link rel="stylesheet" href="css/message.css" />
@@ -45,7 +43,7 @@
         var restRequest = new RestRequest($"api/Message?page=0&offset={request.StartIndex}");
         var response = await _restClient.GetAsync<List<MessageDto>>(restRequest);
 
-        return response;
+        return response!;
     }
 
     private static string GetFormattedTimestamp(DateTimeOffset dateTime)

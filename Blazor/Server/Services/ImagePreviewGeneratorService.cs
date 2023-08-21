@@ -1,13 +1,8 @@
-﻿using System.Buffers;
-using System.Diagnostics;
-using System.Security.Cryptography;
-using System.Text;
-using SixLabors.ImageSharp.Formats.Pbm;
+﻿using System.Diagnostics;
 using SixLabors.ImageSharp.Formats.Png;
 using tusdotnet.Interfaces;
 using tusdotnet.Models;
 using tusdotnet.Stores;
-using tusdotnet.Stores.FileIdProviders;
 
 namespace Blazor.Server.Services;
 
@@ -51,7 +46,7 @@ public class ImagePreviewGeneratorService
         {
             ResizingDimension.Width => (MaxWidth, 0),
             ResizingDimension.Height => (0, MaxHeight),
-            ResizingDimension.Both => (MaxWidth, MaxHeight),
+            ResizingDimension.Both => (MaxWidth, 0),
             _ => throw new ArgumentOutOfRangeException(nameof(resizingDimension), resizingDimension, null)
         };
 

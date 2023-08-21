@@ -1,7 +1,4 @@
 ﻿@page "/app"
-
-@using Blazor.Client.Models
-@using Blazor.Client.Services
 @using Blazored.LocalStorage
 @using RestSharp
 @implements IAsyncDisposable
@@ -38,7 +35,7 @@
 <div id="overlay">Drop your file here!</div>
 
 <div>
-    <button @onclick="() => LogOut(false)">Log out</button>
+    <button @onclick="() => LogOut()">Log out</button>
     <button @onclick="()=> LogOut(true)">Log out (all sessions)</button>
 </div>
 
@@ -91,7 +88,6 @@
     private void MessageServiceMessageReceived(MessageModel model)
     {
         _scrollRef.InsertItem(0, model);
-        StateHasChanged();
     }
 
     private async Task<IEnumerable<MessageModel>> GetMessagePage(InfiniteScrollingItemsProviderRequest request)
@@ -126,7 +122,7 @@
         await LocalStorageService.RemoveItemAsync("Token");
         JwtService.ClearToken();
         
-        NavigationManager.NavigateTo("");
+        NavigationManager.NavigateTo("/true");
     }
 
     public async ValueTask DisposeAsync()

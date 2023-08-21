@@ -1,10 +1,8 @@
 using Blazor.Client;
 using Blazor.Client.Services;
 using Blazored.LocalStorage;
-using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
-using Microsoft.AspNetCore.Components.WebAssembly.Authentication;
 using RestSharp;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);

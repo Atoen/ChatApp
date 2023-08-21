@@ -1,5 +1,4 @@
-﻿using System.Reflection;
-using Blazor.Shared;
+﻿using Blazor.Shared;
 using FluentResults;
 using Microsoft.AspNetCore.SignalR.Client;
 

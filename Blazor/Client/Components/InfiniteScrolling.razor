@@ -97,6 +97,7 @@
     public void InsertItem(int index, T item)
     {
         Items.Insert(index, item);
+        StateHasChanged();
     }
 
     public async Task RefreshDataAsync()

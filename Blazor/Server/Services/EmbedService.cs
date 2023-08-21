@@ -1,9 +1,7 @@
-﻿using System;
-using System.Text;
+﻿using System.Text;
 using Blazor.Server.Models;
 using Blazor.Shared;
 using tusdotnet.Interfaces;
-using tusdotnet.Models;
 
 namespace Blazor.Server.Services;
 

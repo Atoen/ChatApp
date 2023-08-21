@@ -1,8 +1,6 @@
 ﻿using System.Globalization;
-using System.Runtime.InteropServices;
 using Blazor.Client.Models;
 using Blazor.Shared;
-using RestSharp;
 
 namespace Blazor.Client.Extensions;
 
@@ -80,6 +78,7 @@ public static class MessageExtensions
     private static readonly List<string> Archive = new() { "zip", "rar", "7z" };
     private static readonly List<string> Code = new() { "cs", "java", "cpp", "py", "js", "c" };
     private static readonly List<string> Video = new() { "mp4", "avi", "mov", "mkv" };
+    private static readonly List<string> Music = new() { "mp3", "wav", "flac", "mp2", "ogg" };
 
     private static FileType GetFileType(string filename)
     {
@@ -94,6 +93,7 @@ public static class MessageExtensions
         if (Archive.Contains(extension)) return FileType.Archive;
         if (Code.Contains(extension)) return FileType.Code;
         if (Video.Contains(extension)) return FileType.Video;
+        if (Music.Contains(extension)) return FileType.Music;
 
         return FileType.Default;
     }
@@ -145,5 +145,6 @@ public enum FileType
     Text,
     Archive,
     Code,
-    Video
+    Video,
+    Music
 }

@@ -3,7 +3,6 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using Blazor.Server.Models;
-using Blazor.Shared;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Blazor.Server.Services;

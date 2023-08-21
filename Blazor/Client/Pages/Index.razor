@@ -1,10 +1,9 @@
 ﻿@page "/"
+@page "/{LogOut:bool}"
+
 @using Blazored.LocalStorage
 @using RestSharp
 @using System.Text.Json
-@using Blazor.Client.Models
-@using Blazor.Client.Services
-@using Blazor.Shared
 @using System.Text
 @using System.Security.Cryptography
 @using System.Net
@@ -19,7 +18,7 @@
     <div class="landing-menu">
         <div class="landing-title">Squadtalk</div>
 
-        @if (_needToLogIn && _sessionDataPresent)
+        @if (_needToLogIn && _sessionDataPresent && !LogOut)
         {
             <p style="color: whitesmoke; margin-bottom: 0;">Your session has expired.</p>
             <p style="color: whitesmoke;">Please log in again.</p>
@@ -136,6 +135,8 @@
 
 @code
 {
+    [Parameter] public bool LogOut { get; set; }
+    
     private readonly UserCredentials _userCredentials = new();
 
     private bool _sessionDataPresent;
@@ -146,7 +147,6 @@
 
     private const string RememberUser = "Remember";
     private const string Username = "Username";
-    private const string Token = "Token";
 
     private const string Red = "#FF0000";
     private const string White = "#0000000";
@@ -173,15 +173,20 @@
             return;
         }
 
-        if (await LocalStorageService.ContainKeyAsync(Username))
-        {
-            _userCredentials.Username = await LocalStorageService.GetItemAsync<string>(Username);
-        }
-        
         if (await LocalStorageService.ContainKeyAsync(RememberUser))
         {
             _rememberUser = await LocalStorageService.GetItemAsync<bool>(RememberUser);
         }
+        
+        if (_rememberUser && await LocalStorageService.ContainKeyAsync(Username))
+        {
+            _userCredentials.Username = await LocalStorageService.GetItemAsync<string>(Username);
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
     }
 
     private async Task<bool> TryAuthenticate()
@@ -198,28 +203,21 @@
         if (!await LocalStorageService.ContainKeyAsync(RememberUser)) return false;
 
         var remember = await LocalStorageService.GetItemAsync<bool>(RememberUser);
-        if (!remember) return false;
-
-        if (!await LocalStorageService.ContainKeyAsync(Token)) return false;
-        if (!await LocalStorageService.ContainKeyAsync(Username)) return false;
-
-        var token = await LocalStorageService.GetItemAsync<string>(Token);
-        var username = await LocalStorageService.GetItemAsync<string>(Username);
         _sessionDataPresent = true;
+        
+        if (!remember) return false;
+        
+        if (!await LocalStorageService.ContainKeyAsync(Username)) return false;
+        
 
-        var success = await OpenSession(username, token);
+        var success = await OpenSession();
 
         return success;
     }
 
-    private async Task<bool> OpenSession(string username, string token)
+    private async Task<bool> OpenSession()
     {
         var request = new RestRequest("api/user/token", Method.Post);
-        request.AddBody(new RefreshTokenRequest
-        {
-            Username = username,
-            Token = token
-        });
 
         var response = await RestClient.ExecuteAsync(request);
         if (!response.IsSuccessStatusCode) return false;
@@ -231,7 +229,7 @@
 
             return true;
         }
-        catch (Exception e)
+        catch
         {
             return false;
         }
@@ -252,16 +250,8 @@
             ? ("api/user/login", "Logged in successfully")
             : ("api/user/signup", "Signed up successfully");
 
-        var token = await AuthenticateAsync(endpoint, message);
-
-        if (token is null)
-        {
-            _working = false;
-            return;
-        }
-        
-        await LocalStorageService.SetItemAsync(Token, token);
-        var success = await OpenSession(_userCredentials.Username!, token);
+        await AuthenticateAsync(endpoint, message);
+        var success = await OpenSession();
 
         if (success)
         {
@@ -271,7 +261,7 @@
         _working = false;
     }
 
-    private async Task<string?> AuthenticateAsync(string endpoint, string successMessage, CancellationToken cancellationToken = default)
+    private async Task AuthenticateAsync(string endpoint, string successMessage, CancellationToken cancellationToken = default)
     {
         _color = White;
         _info = string.Empty;
@@ -283,36 +273,23 @@
 
         var dto = new UserCredentialsDto { Username = _userCredentials.Username, PasswordHash = Convert.ToBase64String(hash) };
         request.AddBody(dto);
-
-        try
+        
+        var response = await RestClient.ExecuteAsync(request, cancellationToken);
+        
+        if (response.IsSuccessStatusCode)
         {
-            var response = await RestClient.PostAsync(request, cancellationToken);
-            if (response.IsSuccessStatusCode)
-            {
-                _info = successMessage;
-                return JsonSerializer.Deserialize<string>(response.Content!);
-            }
-
-            if (response.StatusCode == HttpStatusCode.NotFound)
-            {
-                _color = Red;
-                _info = $"User {_userCredentials.Username} not found";
-            }
-
-            return null;
+            _info = successMessage;
+            return;
         }
-        catch (HttpRequestException e)
+
+        _color = Red;
+        _info = response switch
         {
-            _color = Red;
-            _info = e.StatusCode switch
-            {
-                HttpStatusCode.Conflict => $"Username {_userCredentials.Username} is already taken",
-                HttpStatusCode.Unauthorized => "Invalid username or password",
-                null => "Unable to connect to the server",
-                _ => $"Server error: {e.StatusCode}"
-                };
-
-            return null;
-        }
+            {StatusCode:  HttpStatusCode.Conflict} => $"Username {_userCredentials.Username} is already taken",
+            {StatusCode:  HttpStatusCode.Unauthorized} => "Invalid username or password",
+            {StatusCode:  HttpStatusCode.NotFound} => $"User {_userCredentials.Username} not found",
+            null => "Unable to connect to the server",
+            _ => $"Server error: {response.StatusCode}"
+        };
     }
 }

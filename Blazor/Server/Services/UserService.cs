@@ -16,7 +16,8 @@ public class UserService
     private readonly TokenService _tokenService;
     private readonly IValidator<UserCredentialsDto> _validator;
 
-    public UserService(AppDbContext dbContext, IHashService hashService, TokenService tokenService, IValidator<UserCredentialsDto> validator)
+    public UserService(AppDbContext dbContext, IHashService hashService, TokenService tokenService,
+        IValidator<UserCredentialsDto> validator)
     {
         _dbContext = dbContext;
         _hashService = hashService;
@@ -24,15 +25,21 @@ public class UserService
         _validator = validator;
     }
 
-    public async Task<OneOf<Success<User>, NotFound, Unauthorized>> VerifyRefreshTokenAsync(RefreshTokenRequest request)
+    public async Task<OneOf<Success<User>, NotFound, Unauthorized>> VerifyRefreshTokenAsync(string? cookieContent)
     {
-        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Username == request.Username);
+        if (cookieContent is null) return new Unauthorized();
+        var cookieResult = GetFormattedCookieContent(cookieContent.AsSpan());
+
+        if (cookieResult.IsT1) return new Unauthorized();
+        var (username, token) = cookieResult.AsT0;
+
+        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Username == username);
         if (user is null)
         {
             return new NotFound();
         }
 
-        var isValid = _tokenService.VerifyRefreshToken(user, request.Token);
+        var isValid = _tokenService.VerifyRefreshToken(user, token);
 
         if (!isValid)
         {
@@ -42,7 +49,23 @@ public class UserService
         return new Success<User>(user);
     }
 
-    public async Task<OneOf<Success<string>, NotFound, Unauthorized>> LoginAsync(UserCredentialsDto userCredentialsDto)
+    private OneOf<(string username, string refreshToken), Error> GetFormattedCookieContent(ReadOnlySpan<char> content)
+    {
+        if (content.IsEmpty) return new Error();
+
+        var delimiterIndex = content.LastIndexOf(' ');
+        if (delimiterIndex <= 0 || content.Length == delimiterIndex)
+        {
+            return new Error();
+        }
+
+        var username = content[..delimiterIndex];
+        var token = content[(delimiterIndex + 1)..];
+
+        return (username.ToString(), token.ToString());
+    }
+
+    public async Task<OneOf<Success<(User, RefreshToken)>,NotFound, Unauthorized>> LoginAsync(UserCredentialsDto userCredentialsDto)
     {
         var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Username == userCredentialsDto.Username);
         if (user is null)
@@ -56,14 +79,18 @@ public class UserService
         {
             return new Unauthorized();
         }
-        
+
         var refreshToken = _tokenService.CreateRefreshToken();
         await AddRefreshToken(user, refreshToken);
 
-        return new Success<string>(refreshToken.Token);
+        return new Success<(User, RefreshToken)>((user, refreshToken));
     }
 
-    public async Task<OneOf<Success<string>, Conflict, Error<List<ValidationFailure>>, Error<string>>> RegisterUser(UserCredentialsDto userCredentialsDto)
+    public async Task<OneOf<Success<(User, RefreshToken)>,
+            Conflict,
+            Error<List<ValidationFailure>>,
+            Error<string>>> 
+        RegisterAsync(UserCredentialsDto userCredentialsDto)
     {
         var validationResult = await _validator.ValidateAsync(userCredentialsDto);
         if (!validationResult.IsValid)
@@ -83,17 +110,12 @@ public class UserService
             var refreshToken = _tokenService.CreateRefreshToken();
             await AddRefreshToken(user, refreshToken);
 
-            return new Success<string>(refreshToken.Token);
+            return new Success<(User, RefreshToken)>((user, refreshToken));
         }
 
-        return remainder.Match<OneOf<Success<string>, Conflict, Error<List<ValidationFailure>>, Error<string>>>(
+        return remainder.Match<OneOf<Success<(User, RefreshToken)>, Conflict, Error<List<ValidationFailure>>, Error<string>>>(
             conflict => conflict,
             error => error);
-
-        // return createResult.Match<OneOf<Success<string>, Conflict, Error<List<ValidationFailure>>, Error<string>>>(
-        //     user => new Success<string>() ,
-        //     conflict => conflict,
-        //     error => error);
     }
 
     public async Task<OneOf<User, NotFound>> GetUser(ClaimsPrincipal claimsPrincipal)
@@ -103,7 +125,7 @@ public class UserService
 
         var usernameClaim = claimsPrincipal.Claims.FirstOrDefault(x => x.Type == JwtClaims.Username);
         if (usernameClaim is null) return new NotFound();
-        
+
         var user = await _dbContext.Users.FindAsync(Guid.Parse(idClaim.Value));
 
         if (user is null || user.Username != usernameClaim.Value)
@@ -150,7 +172,7 @@ public class UserService
     private async Task AddRefreshToken(User user, RefreshToken refreshToken)
     {
         var dbToken = refreshToken.CloneAndHashData();
-        
+
         user.RefreshTokens.Add(dbToken);
         _dbContext.Update(user);
 
@@ -158,6 +180,10 @@ public class UserService
     }
 }
 
-public struct Unauthorized { }
+public struct Unauthorized
+{
+}
 
-public struct Conflict { }
+public struct Conflict
+{
+}

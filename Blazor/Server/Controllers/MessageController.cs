@@ -29,7 +29,7 @@ public class MessageController : ControllerBase
             .Take(20)
             .Include(m => m.Author)
             .AsAsyncEnumerable();
-
+        
         await foreach (var message in messages)
         {
             yield return message.ToDto();

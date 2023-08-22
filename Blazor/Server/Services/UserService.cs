@@ -33,7 +33,9 @@ public class UserService
         if (cookieResult.IsT1) return new Unauthorized();
         var (username, token) = cookieResult.AsT0;
 
-        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Username == username);
+        var user = await _dbContext.Users.Include(x => x.RefreshTokens)
+            .FirstOrDefaultAsync(x => x.Username == username);
+        
         if (user is null)
         {
             return new NotFound();
@@ -49,7 +51,7 @@ public class UserService
         return new Success<User>(user);
     }
 
-    private OneOf<(string username, string refreshToken), Error> GetFormattedCookieContent(ReadOnlySpan<char> content)
+    public OneOf<(string username, string refreshToken), Error> GetFormattedCookieContent(ReadOnlySpan<char> content)
     {
         if (content.IsEmpty) return new Error();
 
@@ -67,7 +69,9 @@ public class UserService
 
     public async Task<OneOf<Success<(User, RefreshToken)>,NotFound, Unauthorized>> LoginAsync(UserCredentialsDto userCredentialsDto)
     {
-        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Username == userCredentialsDto.Username);
+        var user = await _dbContext.Users.Include(x => x.RefreshTokens)
+            .FirstOrDefaultAsync(x => x.Username == userCredentialsDto.Username);
+
         if (user is null)
         {
             return new NotFound();
@@ -118,7 +122,7 @@ public class UserService
             error => error);
     }
 
-    public async Task<OneOf<User, NotFound>> GetUser(ClaimsPrincipal claimsPrincipal)
+    public async Task<OneOf<User, NotFound>> GetUser(ClaimsPrincipal claimsPrincipal, bool includeRefreshTokens = false)
     {
         var idClaim = claimsPrincipal.Claims.FirstOrDefault(x => x.Type == JwtClaims.Uid);
         if (idClaim is null) return new NotFound();
@@ -126,7 +130,11 @@ public class UserService
         var usernameClaim = claimsPrincipal.Claims.FirstOrDefault(x => x.Type == JwtClaims.Username);
         if (usernameClaim is null) return new NotFound();
 
-        var user = await _dbContext.Users.FindAsync(Guid.Parse(idClaim.Value));
+        var guid = Guid.Parse(idClaim.Value);
+        var user = includeRefreshTokens
+            ? await _dbContext.Users.Include(x => x.RefreshTokens)
+                .FirstOrDefaultAsync(x => x.Id == guid)
+            : await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == guid);
 
         if (user is null || user.Username != usernameClaim.Value)
         {

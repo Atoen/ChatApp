@@ -13,4 +13,10 @@ public class AppDbContext : DbContext
 
     public DbSet<User> Users { get; set; } = default!;
     public DbSet<Message> Messages { get; set; } = default!;
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<User>().Navigation(x => x.RefreshTokens)
+            .AutoInclude(false);
+    }
 }

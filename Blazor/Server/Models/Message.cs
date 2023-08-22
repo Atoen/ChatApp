@@ -23,14 +23,3 @@ public class Message
         };
     }
 }
-
-//public class MessageDto
-//{
-//    public required MessageAuthorDto Author { get; set; }
-//    public int Id { get; set; }
-//    public DateTimeOffset Timestamp { get; set; }
-//    public required string Content { get; set; }
-//    public Embed? Embed { get; set; }
-//}
-
-

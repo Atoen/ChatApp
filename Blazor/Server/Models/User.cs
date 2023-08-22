@@ -8,7 +8,7 @@ public class User
     public required string Username { get; set; }
     public required byte[] Salt { get; set; }
     public required string PasswordHash { get; set; }
-    public required List<RefreshToken> RefreshTokens { get; set; }
+    public List<RefreshToken> RefreshTokens { get; set; } = null!;
 
     public MessageAuthorDto ToDto()
     {

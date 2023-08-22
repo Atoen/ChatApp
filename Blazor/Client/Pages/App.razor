@@ -118,11 +118,11 @@
         }
         
         await RestClient.ExecuteAsync(request);
-        
-        await LocalStorageService.RemoveItemAsync("Token");
+
+        await LocalStorageService.RemoveItemAsync("Username");
         JwtService.ClearToken();
         
-        NavigationManager.NavigateTo("/true");
+        NavigationManager.NavigateTo("/");
     }
 
     public async ValueTask DisposeAsync()

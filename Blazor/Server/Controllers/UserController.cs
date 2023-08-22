@@ -49,7 +49,7 @@ public class UserController : ControllerBase
     private IActionResult AuthSuccess(ValueTuple<User, RefreshToken> tuple)
     {
         var (user, token) = tuple;
-        AddUserRefreshTokenCookie(user, token);
+        SetUserRefreshTokenCookie(user, token);
         
         return Ok();
     }
@@ -74,17 +74,20 @@ public class UserController : ControllerBase
 
     [Authorize]
     [HttpPost("logout")]
-    public async Task<IActionResult> RevokeToken([FromBody] string token, bool invalidateAllSessions = false)
+    public async Task<IActionResult> LogOut(bool invalidateAllSessions = false)
     {
-        var userResult = await _userService.GetUser(HttpContext.User);
+        var userResult = await _userService.GetUser(HttpContext.User, true);
+        if (userResult.IsT1) return NotFound();
 
-        if (userResult.IsT1)
-        {
-            return NotFound();
-        }
-        
         var user = userResult.AsT0;
+
+        var cookieFormatResult = _userService.GetFormattedCookieContent(Request.Cookies[CookieName]);
+        if (cookieFormatResult.IsT1) return BadRequest();
+
+        var cookie = cookieFormatResult.AsT0;
+        var token = cookie.refreshToken;
         
+        Response.Cookies.Delete(CookieName);
         if (invalidateAllSessions)
         {
             await _tokenService.RevokeAllRefreshTokens(user);
@@ -92,7 +95,7 @@ public class UserController : ControllerBase
         }
         
         var removed = await _tokenService.RevokeRefreshToken(user, token);
-        Response.Cookies.Delete(CookieName);
+        
         return removed ? Ok() : BadRequest();
     }
     
@@ -104,7 +107,7 @@ public class UserController : ControllerBase
             new Claim(JwtClaims.Uid, user.Id.ToString()));
     }
 
-    private void AddUserRefreshTokenCookie(User user, RefreshToken token)
+    private void SetUserRefreshTokenCookie(User user, RefreshToken token)
     {
         var cookie = new CookieOptions
         {

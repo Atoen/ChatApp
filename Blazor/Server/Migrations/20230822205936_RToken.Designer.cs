@@ -11,8 +11,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Blazor.Server.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20230812155542_RefreshTokens")]
-    partial class RefreshTokens
+    [Migration("20230822205936_RToken")]
+    partial class RToken
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

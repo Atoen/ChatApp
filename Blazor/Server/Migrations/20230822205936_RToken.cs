@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Blazor.Server.Migrations
 {
     /// <inheritdoc />
-    public partial class RefreshTokens : Migration
+    public partial class RToken : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

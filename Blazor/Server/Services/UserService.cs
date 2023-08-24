@@ -33,9 +33,8 @@ public class UserService
         if (cookieResult.IsT1) return new Unauthorized();
         var (username, token) = cookieResult.AsT0;
 
-        var user = await _dbContext.Users.Include(x => x.RefreshTokens)
-            .FirstOrDefaultAsync(x => x.Username == username);
-        
+        var user = await CompiledQueries.UserByNameWithRefreshTokensAsync(_dbContext, username);
+
         if (user is null)
         {
             return new NotFound();
@@ -69,8 +68,7 @@ public class UserService
 
     public async Task<OneOf<Success<(User, RefreshToken)>,NotFound, Unauthorized>> LoginAsync(UserCredentialsDto userCredentialsDto)
     {
-        var user = await _dbContext.Users.Include(x => x.RefreshTokens)
-            .FirstOrDefaultAsync(x => x.Username == userCredentialsDto.Username);
+        var user = await CompiledQueries.UserByNameWithRefreshTokensAsync(_dbContext, userCredentialsDto.Username);
 
         if (user is null)
         {
@@ -102,7 +100,7 @@ public class UserService
             return new Error<List<ValidationFailure>>(validationResult.Errors);
         }
 
-        if (await _dbContext.Users.AnyAsync(x => x.Username == userCredentialsDto.Username))
+        if (await CompiledQueries.UsernameExistsAsync(_dbContext, userCredentialsDto.Username))
         {
             return new Conflict();
         }
@@ -122,6 +120,8 @@ public class UserService
             error => error);
     }
 
+
+
     public async Task<OneOf<User, NotFound>> GetUser(ClaimsPrincipal claimsPrincipal, bool includeRefreshTokens = false)
     {
         var idClaim = claimsPrincipal.Claims.FirstOrDefault(x => x.Type == JwtClaims.Uid);
@@ -132,9 +132,8 @@ public class UserService
 
         var guid = Guid.Parse(idClaim.Value);
         var user = includeRefreshTokens
-            ? await _dbContext.Users.Include(x => x.RefreshTokens)
-                .FirstOrDefaultAsync(x => x.Id == guid)
-            : await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == guid);
+            ? await CompiledQueries.UserByGuidWithRefreshTokensAsync(_dbContext, guid)
+            : await CompiledQueries.UserByGuidAsync(_dbContext, guid);
 
         if (user is null || user.Username != usernameClaim.Value)
         {
@@ -151,7 +150,7 @@ public class UserService
 
         var user = new User
         {
-            Username = userCredentialsDto.Username!,
+            Username = userCredentialsDto.Username,
             PasswordHash = hash,
             Salt = salt,
             Id = Guid.NewGuid(),

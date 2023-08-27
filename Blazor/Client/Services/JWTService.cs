@@ -1,31 +1,31 @@
 ﻿using System.IdentityModel.Tokens.Jwt;
 using System.Text.Json;
-using Blazor.Shared;
-using Blazored.LocalStorage;
+using Blazor.Client.Options;
+using Microsoft.Extensions.Options;
 using RestSharp;
 
 namespace Blazor.Client.Services;
 
 public sealed class JWTService
 {
+	private readonly JwtServiceOptions _options;
 	private readonly RestClient _restClient;
-	private readonly ILocalStorageService _localStorageService;
 	private const string EmptyToken = "token";
 
-	private JwtSecurityToken _content = null!;
 	private readonly JwtSecurityTokenHandler _tokenHandler = new();
 	private CancellationTokenSource _cancellationTokenSource = new();
 
 	public Action? UnableToRefreshToken;
 	private Task? _updateTask;
 
-	public JWTService(RestClient restClient, ILocalStorageService localStorageService)
+	public JWTService(IOptions<JwtServiceOptions> options, RestClient restClient)
 	{
+		_options = options.Value;
 		_restClient = restClient;
-		_localStorageService = localStorageService;
 	}
 
 	public string Token { get; private set; } = EmptyToken;
+	public JwtSecurityToken SecurityToken { get; private set; } = new();
 
 	public void SetFirstToken(string token)
 	{
@@ -52,28 +52,23 @@ public sealed class JWTService
 		_cancellationTokenSource = new CancellationTokenSource();
 	}
 
-	private string GetClaimValue(string claimName)
-	{
-		return _content.Claims.First(x => x.Type == claimName).Value;
-	}
-
 	private async Task TokenUpdateLoopAsync(bool startWithDelay, CancellationToken cancellationToken)
 	{
 		try
 		{
 			if (startWithDelay)
 			{
-				_content = _tokenHandler.ReadJwtToken(Token);
+				SecurityToken = _tokenHandler.ReadJwtToken(Token);
 				await DelayNextRequest(cancellationToken);
 			}
-
+		
 			while (!cancellationToken.IsCancellationRequested)
 			{
 				var token = await GetTokenAsync(cancellationToken);
 				if (token is null) break;
-
+		
 				Token = token;
-				_content = _tokenHandler.ReadJwtToken(token);
+				SecurityToken = _tokenHandler.ReadJwtToken(token);
 				await DelayNextRequest(cancellationToken);
 			}
 		}
@@ -87,7 +82,7 @@ public sealed class JWTService
 
 	private async Task DelayNextRequest(CancellationToken cancellationToken)
 	{
-		var lifetime = _content.ValidTo.ToLocalTime() - DateTime.Now;
+		var lifetime = SecurityToken.ValidTo.ToLocalTime() - DateTime.Now;
 		var requestDelay = lifetime * 0.8;
 
 		await Task.Delay(requestDelay, cancellationToken);
@@ -95,18 +90,16 @@ public sealed class JWTService
 
 	private async Task<string?> GetTokenAsync(CancellationToken cancellationToken)
 	{
-		var delays = new[] { 1, 2, 5, 10, 15 };
-		const int maxAttempts = 5;
-
 		var attempt = 0;
-		while (attempt < maxAttempts)
+		while (attempt < _options.RetryAttempts)
 		{
 			attempt++;
 
 			var token = await RequestNewTokenAsync(cancellationToken);
 			if (token is not null) return token;
 
-			await Task.Delay(TimeSpan.FromSeconds(delays[attempt - 1]), cancellationToken);
+			var delay = _options.RetryDelays[Math.Min(attempt, _options.RetryDelays.Length) - 1];
+			await Task.Delay(TimeSpan.FromSeconds(delay), cancellationToken);
 		}
 
 		return null;
@@ -116,15 +109,8 @@ public sealed class JWTService
 	{
 		try
 		{
-			var refreshToken = await _localStorageService.GetItemAsync<string>("Token", cancellationToken);
-
 			var request = new RestRequest("api/user/refresh-token", Method.Post)
-				.AddHeader("Authorization", $"Bearer {Token}")
-				.AddBody(new RefreshTokenRequest
-				{
-					Username = GetClaimValue("unique_name"),
-					Token = refreshToken
-				});
+				.AddHeader("Authorization", $"Bearer {Token}");
 
 			var response = await _restClient.ExecuteAsync(request, cancellationToken);
 
@@ -132,10 +118,9 @@ public sealed class JWTService
 				? JsonSerializer.Deserialize<string>(response.Content!)
 				: null;
 		}
-		catch (Exception e)
+		catch
 		{
-			Console.WriteLine(e);
-			throw;
+			return null;
 		}
 	}
 }

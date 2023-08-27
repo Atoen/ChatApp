@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using Blazor.Server.Models;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Blazor.Server.Services;
@@ -67,12 +68,15 @@ public class TokenService
 
     public async Task<bool> RevokeRefreshToken(User user, string token)
     {
-        var removed = user.RefreshTokens.RemoveAll(x => x.Token == token);
-        if (removed == 0)
+        var hash = RefreshToken.HashData(token);
+        var refreshToken = user.RefreshTokens.FirstOrDefault(x => x.Token == hash);
+        if (refreshToken is null)
         {
             return false;
         }
         
+        refreshToken.Revoked = DateTime.UtcNow;
+
         _dbContext.Update(user);
         await _dbContext.SaveChangesAsync();
 
@@ -82,10 +86,11 @@ public class TokenService
     public async Task RevokeAllRefreshTokens(User user)
     {
         if (user.RefreshTokens.Count == 0) return;
+
+        await _dbContext.Database.ExecuteSqlRawAsync(
+            "delete from RefreshToken where UserId = {0}",
+            user.Id);
         
         user.RefreshTokens.Clear();
-
-        _dbContext.Update(user);
-        await _dbContext.SaveChangesAsync();
     }
 }

@@ -1,0 +1,81 @@
+﻿.landing-loading {
+    color: whitesmoke;
+    font-size: 24px;
+    text-align: center;
+    animation: loading-wave 3s linear infinite;
+}
+
+@keyframes loading-wave {
+     0%, 100% {color: white;}
+     50% {color:  gray;}
+ }
+
+.landing-background {
+    display: flex;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100vw;
+    height: 100vh;
+    justify-content: center;
+    align-items: center;
+    background: rgb(26,85,134);
+    background: linear-gradient(0deg, rgba(26,85,134,1) 0%, rgba(111,0,163,1) 100%);
+}
+
+.landing-menu {
+    background: #212121;
+    border-radius: 10px;
+    padding: 20px;
+    max-width: 300px;
+}
+
+.landing-menu * {
+    color: whitesmoke;
+    border: none;
+    font-family: Verdana, sans-serif;
+}
+
+.landing-title {
+    background: linear-gradient(to right, #9d00e7, #117bd2);
+    background-size: 400% 400%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    font-size: 40px;
+    font-weight: bold;
+    font-family: "Audiowide", sans-serif;
+    margin-bottom: 10px;
+    animation: title-wave 5s linear infinite;
+}
+
+button {
+    border: none;
+    margin: 5px 10px 0;
+    width: 100px;
+}
+
+input {
+    border-radius: 5px;
+    width: 100%;
+    background: #323232;
+    padding: 5px;
+}
+
+input:focus {
+    outline: none;
+}
+
+::-ms-reveal {
+    filter: invert(100%);
+}
+
+p {
+    display: flex;
+    justify-content: center;
+}
+
+@keyframes title-wave {
+     0%, 100% {background-position:0 50%}
+     50%{background-position:100% 50%}
+ }

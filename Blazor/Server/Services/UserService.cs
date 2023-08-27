@@ -119,9 +119,7 @@ public class UserService
             conflict => conflict,
             error => error);
     }
-
-
-
+    
     public async Task<OneOf<User, NotFound>> GetUser(ClaimsPrincipal claimsPrincipal, bool includeRefreshTokens = false)
     {
         var idClaim = claimsPrincipal.Claims.FirstOrDefault(x => x.Type == JwtClaims.Uid);

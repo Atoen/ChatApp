@@ -1,6 +1,7 @@
 ﻿@page "/app"
 @using Blazored.LocalStorage
 @using RestSharp
+
 @implements IAsyncDisposable
 
 <PageTitle>Squadtalk</PageTitle>
@@ -8,8 +9,6 @@
 <link rel="stylesheet" href="css/textbox.css" />
 <link rel="stylesheet" href="css/messageTemplate.css" />
 <link rel="stylesheet" href="css/uploadinfo.css" />
-
-<PageTitle>title</PageTitle>
 
 <div style="background: #424242;">
     <div class="message-listbox">
@@ -37,12 +36,20 @@
 <div>
     <button @onclick="() => LogOut()">Log out</button>
     <button @onclick="()=> LogOut(true)">Log out (all sessions)</button>
+    <button @onclick="Callback">Callback</button>
 </div>
 
 <style>
     .page {
         height: 100vh;
         background: linear-gradient(0deg, rgba(26,85,134,1) 0%, rgba(111,0,163,1) 100%);
+    }
+    
+    .message-listbox {
+        height: 80vh;
+        overflow: auto;
+        display: flex;
+        flex-direction: column-reverse;
     }
 
     #overlay {
@@ -67,8 +74,10 @@
 @inject NavigationManager NavigationManager
 @inject RestClient RestClient
 @inject ILocalStorageService LocalStorageService
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 @code {
+    
     private InfiniteScrolling<MessageModel> _scrollRef = null!;
 
     protected override async Task OnInitializedAsync()
@@ -83,6 +92,7 @@
         Console.WriteLine(result);
 
         MessageService.MessageReceived = MessageServiceMessageReceived;
+        JwtService.UnableToRefreshToken = () => NavigationManager.NavigateTo("/");
     }
 
     private void MessageServiceMessageReceived(MessageModel model)
@@ -131,5 +141,16 @@
 
         await SignalRService.DisposeAsync();
         await _scrollRef.DisposeAsync();
+    }
+
+    private async Task Callback()
+    {
+        var a = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        Console.WriteLine($"Claims: {a.User.Claims.Count()}");
+        
+        foreach (var claim in a.User.Claims)
+        {
+            Console.WriteLine(claim.Value);
+        }
     }
 }

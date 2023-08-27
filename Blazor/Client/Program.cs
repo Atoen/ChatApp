@@ -1,6 +1,8 @@
 using Blazor.Client;
+using Blazor.Client.Options;
 using Blazor.Client.Services;
 using Blazored.LocalStorage;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using RestSharp;
@@ -20,6 +22,13 @@ builder.Services.AddScoped(_ => new RestClient(options =>
 builder.Services.AddTransient<SignalRService>();
 builder.Services.AddScoped<MessageService>();
 builder.Services.AddScoped<JWTService>();
+builder.Services.Configure<JwtServiceOptions>(options =>
+{
+    options.RetryAttempts = 5;
+    options.RetryDelays = new[] { 1, 2, 5, 10, 15 };
+});
+
+builder.Services.AddScoped<AuthenticationStateProvider, JwtAuthenticationStateProvider>();
 builder.Services.AddBlazoredLocalStorage();
 
 await builder.Build().RunAsync();

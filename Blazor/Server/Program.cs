@@ -53,11 +53,6 @@ builder.Services.AddControllers();
 builder.Services.AddSignalR();
 builder.Services.AddHttpClient();
 
-builder.Services.Configure<CookiePolicyOptions>(options =>
-{
-    options.CheckConsentNeeded = context => true;
-});
-
 var serverVersion = new MySqlServerVersion(connectionString);
 builder.Services.AddDbContext<AppDbContext>(optionsBuilder => optionsBuilder
     .UseMySql(connectionString, serverVersion)
@@ -90,7 +85,6 @@ else
     app.UseExceptionHandler("/Error");
 }
 
-app.UseCookiePolicy();
 app.UseCors(corsPolicy);
 
 app.MapHealthChecks("_health", new HealthCheckOptions

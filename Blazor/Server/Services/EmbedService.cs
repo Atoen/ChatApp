@@ -55,21 +55,10 @@ public class EmbedService
         };
 
         var (widthInt, heightInt) = (int.Parse(width), int.Parse(height));
-
-        var dimension = ImagePreviewGeneratorService.ResizingDimension.None;
-
-        if (widthInt > ImagePreviewGeneratorService.MaxWidth)
+        
+        if (widthInt > ImagePreviewGeneratorService.MaxWidth || heightInt > ImagePreviewGeneratorService.MaxHeight)
         {
-            dimension = ImagePreviewGeneratorService.ResizingDimension.Width;
-        }
-        if (heightInt > ImagePreviewGeneratorService.MaxHeight)
-        {
-            dimension |= ImagePreviewGeneratorService.ResizingDimension.Height;
-        }
-
-        if (dimension != ImagePreviewGeneratorService.ResizingDimension.None)
-        {
-            var (previewId, previewWidth, previewHeight) = await _previewGeneratorService.CreateImagePreviewAsync(file, dimension, context.RequestAborted);
+            var (previewId, previewWidth, previewHeight) = await _previewGeneratorService.CreateImagePreviewAsync(file, context.RequestAborted);
 
             data["Preview"] = CreateUri(previewId, context);
             data["Width"] = previewWidth.ToString();

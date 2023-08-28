@@ -29,7 +29,7 @@ public class ImagePreviewGeneratorService
         _tusStore = new TusDiskStore(diskStoreHelper.Path);
     }
 
-    public async Task<(string id, int width, int height)> CreateImagePreviewAsync(ITusFile imageFile, ResizingDimension resizingDimension, CancellationToken cancellationToken)
+    public async Task<(string id, int width, int height)> CreateImagePreviewAsync(ITusFile imageFile, CancellationToken cancellationToken)
     {
         var start = Stopwatch.GetTimestamp();
         
@@ -41,14 +41,8 @@ public class ImagePreviewGeneratorService
 
         var loaded = Stopwatch.GetTimestamp();
         _logger.LogInformation("Loaded image in {Time}", Stopwatch.GetElapsedTime(start, loaded));
-
-        var (targetWidth, targetHeight) = resizingDimension switch
-        {
-            ResizingDimension.Width => (MaxWidth, 0),
-            ResizingDimension.Height => (0, MaxHeight),
-            ResizingDimension.Both => (MaxWidth, 0),
-            _ => throw new ArgumentOutOfRangeException(nameof(resizingDimension), resizingDimension, null)
-        };
+        
+        var (targetWidth, targetHeight) = GetResizedDimensions(image);
 
         image.Mutate(x => x.Resize(targetWidth, targetHeight, KnownResamplers.NearestNeighbor));
 
@@ -84,5 +78,30 @@ public class ImagePreviewGeneratorService
         var size64 = Convert.ToBase64String(filesize);
 
         return $"filename {name64},filetype {type64},filesize {size64}";
+    }
+
+    private (int width, int height) GetResizedDimensions(Image image)
+    {
+        var (width, height) = (image.Width, image.Height);
+
+        if (width > MaxWidth && height > MaxHeight)
+        {
+            return CalculateDimensions(width, height);
+        }
+        
+        return width > MaxWidth ? (MaxWidth, 0) : (0, MaxHeight);
+    }
+
+    private (int width, int height) CalculateDimensions(int width, int height)
+    {
+        var widthScale = (double) MaxWidth / width;
+        var heightScale = (double) MaxHeight / height;
+        
+        var scale = Math.Min(widthScale, heightScale);
+        
+        var newWidth = (int)(width * scale);
+        var newHeight = (int)(height * scale);
+
+        return (newWidth, newHeight);
     }
 }

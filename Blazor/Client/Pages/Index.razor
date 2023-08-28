@@ -6,7 +6,6 @@
 @using System.Text
 @using System.Security.Cryptography
 @using System.Net
-@using System.Diagnostics.CodeAnalysis
 
 @inject NavigationManager Navigation
 
@@ -14,13 +13,19 @@
 
 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Audiowide">
 
-<div class="landing-background">
+<div class="background">
     
-    <div class="landing-menu">
-        <div class="landing-title">Squadtalk</div>
-        
-        @if (!_tryingToAutomaticallyAuthenticate)
-        {
+    <div class="menu">
+        <div class="title">Squadtalk</div>
+        <div class="form">
+            @if (_working)
+            {
+                <div class="working">
+                    <div class="loading">Please wait...</div>
+                    <div class="custom-loader"></div>
+                </div>
+            }
+
             @if (_needToLogIn && _sessionDataPresent)
             {
                 <p style="color: whitesmoke; margin-bottom: 0;">Your session has expired.</p>
@@ -53,18 +58,14 @@
                         Sign Up
                     </button>
                 </p>
-                <p class="remember-user" style="white-space: nowrap; margin-bottom: 0">
+                <p style="white-space: nowrap; margin-bottom: 0">
                     <label>
                         <span style="margin-right: 15px">Remember me</span>
                         <input type="checkbox" @bind="_rememberUser" style="width: 25px; height: 25px;"/>
                     </label>
                 </p>
             </EditForm>
-        }
-        else
-        {
-            <div class="landing-loading">Loading</div>
-        }
+        </div>
     </div>
 </div>
 
@@ -77,6 +78,7 @@
         width: 100%;
         background: #323232;
         padding: 5px;
+        margin: 3px 2px 0 2px;
     }
     
     input:focus {
@@ -101,9 +103,7 @@
 
     private bool _rememberUser;
     private bool _working;
-
-    private bool _tryingToAutomaticallyAuthenticate = true;
-
+    
     private const string RememberUser = "Remember";
     private const string Username = "Username";
 
@@ -131,8 +131,6 @@
             Navigation.NavigateTo("app");
             return;
         }
-
-        _tryingToAutomaticallyAuthenticate = false;
 
         if (await LocalStorageService.ContainKeyAsync(RememberUser))
         {
@@ -193,7 +191,7 @@
     private async Task FormCallback()
     {
         _working = true;
-
+        
         await LocalStorageService.SetItemAsync(RememberUser, _rememberUser);
 
         if (_rememberUser)
@@ -220,6 +218,8 @@
     {
         _color = White;
         _info = string.Empty;
+        
+        StateHasChanged();
 
         var request = new RestRequest(endpoint, Method.Post);
 
@@ -243,7 +243,7 @@
             {StatusCode:  HttpStatusCode.Conflict} => $"Username {_userCredentials.Username} is already taken",
             {StatusCode:  HttpStatusCode.Unauthorized} => "Invalid username or password",
             {StatusCode:  HttpStatusCode.NotFound} => $"User {_userCredentials.Username} not found",
-            null => "Unable to connect to the server",
+            {StatusCode: 0} => "Unable to connect to the server",
             _ => $"Server error: {response.StatusCode}"
         };
     }

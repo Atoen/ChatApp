@@ -1,9 +1,9 @@
 ﻿@using Blazor.Client.Models
 
-<div class="message-container">
+<div class="container">
     @if (Model.IsFirst)
     {
-        <div class="message-padding"></div>
+        <div class="padding"></div>
         <img class="avatar" src="user.png" alt="Avatar"/>
         <div class="username">@Model.Author</div>
         <div class="date" data-date="@LongDate">@Date</div>

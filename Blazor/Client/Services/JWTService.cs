@@ -6,6 +6,8 @@ using RestSharp;
 
 namespace Blazor.Client.Services;
 
+public delegate void TokenUpdatedHandler(JwtSecurityToken securityToken);
+
 public sealed class JWTService
 {
 	private readonly JwtServiceOptions _options;
@@ -17,6 +19,8 @@ public sealed class JWTService
 
 	public Action? UnableToRefreshToken;
 	private Task? _updateTask;
+
+	public event TokenUpdatedHandler? TokenUpdated;
 
 	public JWTService(IOptions<JwtServiceOptions> options, RestClient restClient)
 	{
@@ -69,6 +73,9 @@ public sealed class JWTService
 		
 				Token = token;
 				SecurityToken = _tokenHandler.ReadJwtToken(token);
+				
+				TokenUpdated?.Invoke(SecurityToken);
+				
 				await DelayNextRequest(cancellationToken);
 			}
 		}

@@ -84,8 +84,6 @@
         width: var(--blazor-load-percentage, 0%);
         border-radius: 5px;
         background-color: royalblue;
-        background-repeat: no-repeat;
-        -webkit-mask:linear-gradient(to right,#000 30%,#0005,#000 70%) right/400% 100%;
         animation: shimmer 1.5s linear infinite;
         position: absolute;
     }
@@ -96,10 +94,6 @@
         border-radius: 6px;
         background-color: white;
         position: absolute;
-    }
-
-    @keyframes shimmer {
-        100% {-webkit-mask-position:left}
     }
 
 </style>

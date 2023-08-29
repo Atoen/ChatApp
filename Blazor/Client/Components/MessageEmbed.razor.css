@@ -15,6 +15,7 @@ a:hover {
     display: flex;
     align-items: center;
     justify-content: center;
+    max-width: 100%;
 }
 
 .image-placeholder {
@@ -37,6 +38,7 @@ a:hover {
     padding: 15px 10px;
     border-radius: 10px;
     width: min-content;
+    max-width: calc(100vw - 100px);
 }
 
 .icon {
@@ -53,6 +55,7 @@ a:hover {
     margin-top: 10px;
     overflow: hidden;
     text-overflow: ellipsis;
+    max-width: calc(100vw - 200px);
 }
 
 .filesize {
@@ -66,6 +69,7 @@ a:hover {
 .image {
     border-radius: 10px;
     cursor: pointer;
+    max-width: 100%;
 }
 
 .image-overlay-parent {

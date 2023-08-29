@@ -23,7 +23,6 @@
             <div class="loading-background">
                 <div class="loading-title">Squadtalk</div>
                 <div class="progress-border">
-                    <div class="progress-value-background"></div>
                     <div class="progress-value"></div>
                 </div>
             </div>
@@ -79,20 +78,13 @@
         position: relative;
     }
 
+    /*noinspection CssUnresolvedCustomProperty*/
     .progress-value {
         height: 100%;
         width: var(--blazor-load-percentage, 0%);
         border-radius: 5px;
         background-color: royalblue;
         animation: shimmer 1.5s linear infinite;
-        position: absolute;
-    }
-    
-    .progress-value-background {
-        height: 100%;
-        width: var(--blazor-load-percentage, 0%);
-        border-radius: 6px;
-        background-color: white;
         position: absolute;
     }
 

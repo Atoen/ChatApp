@@ -7,8 +7,6 @@
 @using System.Security.Cryptography
 @using System.Net
 
-@inject NavigationManager Navigation
-
 <PageTitle>Squadtalk</PageTitle>
 
 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Audiowide">
@@ -90,6 +88,7 @@
     }
 </style>
 
+@inject NavigationManager Navigation
 @inject ILocalStorageService LocalStorageService
 @inject RestClient RestClient
 @inject JWTService JwtService

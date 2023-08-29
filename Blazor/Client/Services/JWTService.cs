@@ -63,6 +63,8 @@ public sealed class JWTService
 			if (startWithDelay)
 			{
 				SecurityToken = _tokenHandler.ReadJwtToken(Token);
+				TokenUpdated?.Invoke(SecurityToken);
+				
 				await DelayNextRequest(cancellationToken);
 			}
 		
@@ -73,7 +75,6 @@ public sealed class JWTService
 		
 				Token = token;
 				SecurityToken = _tokenHandler.ReadJwtToken(token);
-				
 				TokenUpdated?.Invoke(SecurityToken);
 				
 				await DelayNextRequest(cancellationToken);
@@ -90,8 +91,8 @@ public sealed class JWTService
 	private async Task DelayNextRequest(CancellationToken cancellationToken)
 	{
 		var lifetime = SecurityToken.ValidTo.ToLocalTime() - DateTime.Now;
-		var requestDelay = lifetime * 0.8;
-
+		var requestDelay = lifetime * 0.8; ;
+		
 		await Task.Delay(requestDelay, cancellationToken);
 	}
 

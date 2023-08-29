@@ -42,8 +42,7 @@ public class EmbedService
 
         return await CreateImageEmbed(file, uri, width, height, context);
     }
-
-
+    
     private async Task<Embed> CreateImageEmbed(ITusFile file, string uri, string width, string height, HttpContext context)
     {
         var data = new Dictionary<string, string>

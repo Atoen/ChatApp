@@ -22,6 +22,8 @@ public sealed class JwtAuthenticationStateProvider : AuthenticationStateProvider
         var principal = new ClaimsPrincipal(identity);
 
         _authenticationState = new AuthenticationState(principal);
+        
+        NotifyAuthenticationStateChanged(Task.FromResult(_authenticationState));
     }
 
     public override Task<AuthenticationState> GetAuthenticationStateAsync()
@@ -32,6 +34,12 @@ public sealed class JwtAuthenticationStateProvider : AuthenticationStateProvider
             var principal = new ClaimsPrincipal(identity);
 
             _authenticationState = new AuthenticationState(principal);
+            NotifyAuthenticationStateChanged(Task.FromResult(_authenticationState));
+        }
+        
+        foreach (var claim in _authenticationState.User.Claims)
+        {
+            Console.WriteLine($"{claim.Type}: {claim.Value}");
         }
         
         return Task.FromResult(_authenticationState);

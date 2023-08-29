@@ -1,6 +1,7 @@
 using Blazor.Client;
 using Blazor.Client.Options;
 using Blazor.Client.Services;
+using Blazor.Shared;
 using Blazored.LocalStorage;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
@@ -26,6 +27,14 @@ builder.Services.Configure<JwtServiceOptions>(options =>
 {
     options.RetryAttempts = 5;
     options.RetryDelays = new[] { 1, 2, 5, 10, 15 };
+});
+
+builder.Services.AddAuthorizationCore(options =>
+{
+    options.AddPolicy(IdentityData.UserPolicyName, policy =>
+    {
+        policy.RequireClaim("role", IdentityData.UserClaimName);
+    });
 });
 
 builder.Services.AddScoped<AuthenticationStateProvider, JwtAuthenticationStateProvider>();

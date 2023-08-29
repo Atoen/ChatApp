@@ -6,7 +6,6 @@
 
 <PageTitle>Squadtalk</PageTitle>
 
-<link rel="stylesheet" href="css/textbox.css" />
 <link rel="stylesheet" href="css/messageTemplate.css" />
 <link rel="stylesheet" href="css/uploadinfo.css" />
 
@@ -38,6 +37,21 @@
     <button @onclick="()=> LogOut(true)">Log out (all sessions)</button>
     <button @onclick="Callback">Callback</button>
 </div>
+
+<AuthorizeView Policy="@IdentityData.UserPolicyName" Context="authContext">
+    <Authorized>
+        <div>
+            Authorized as:
+            @foreach (var claim in authContext.User.Claims)
+            {
+                <p>@claim</p>
+            }
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <p>You are not authorized to access this content.</p>
+    </NotAuthorized>
+</AuthorizeView>
 
 <style>
     .page {
@@ -144,13 +158,13 @@
     }
 
     private async Task Callback()
-    {
-        var a = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        Console.WriteLine($"Claims: {a.User.Claims.Count()}");
-        
-        foreach (var claim in a.User.Claims)
-        {
-            Console.WriteLine(claim.Value);
-        }
-    }
+     {
+         var a = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+         Console.WriteLine($"Claims: {a.User.Claims.Count()}");
+         
+         foreach (var claim in a.User.Claims)
+         {
+             Console.WriteLine(claim.Value);
+         }
+     }
 }

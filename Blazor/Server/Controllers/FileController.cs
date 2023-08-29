@@ -22,6 +22,8 @@ public class FileController : ControllerBase
     [HttpGet]
     public async Task<ActionResult> DownloadFile([FromQuery] string id)
     {
+        // await Task.Delay(TimeSpan.FromSeconds(15));
+        
         var store = new TusDiskStore(_diskStoreHelper.Path);
 
         ITusFile file;

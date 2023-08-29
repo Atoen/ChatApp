@@ -1,5 +1,5 @@
 ﻿
-.container {
+.message-container {
     display: grid;
     grid-template-columns: 60px min-content min-content auto;
     grid-template-rows: min-content;
@@ -58,11 +58,11 @@
     margin-left: 10px;
 }
 
-.container:hover .content-only-date {
+.message-container:hover .content-only-date {
     display: block;
 }
 
-.container:hover {
+.message-container:hover {
     background: #333333
 }
 

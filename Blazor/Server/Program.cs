@@ -5,6 +5,7 @@ using Blazor.Server.Models;
 using Blazor.Server.Services;
 using Blazor.Server.Setup;
 using Blazor.Server.Validators;
+using Blazor.Shared;
 using FluentValidation;
 using HealthChecks.UI.Client;
 using Microsoft.EntityFrameworkCore;
@@ -25,9 +26,9 @@ builder.Services.Configure<KestrelServerOptions>(options =>
 builder.ConfigureAuthentication();
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy(IdentityData.AdminUserPolicyName, policyBuilder =>
+    options.AddPolicy(IdentityData.AdminPolicyName, policyBuilder =>
     {
-        policyBuilder.RequireClaim(IdentityData.AdminUserClaimName, "true");
+        policyBuilder.RequireClaim(IdentityData.AdminClaimName, "true");
     });
 });
 

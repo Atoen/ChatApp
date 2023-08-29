@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using SixLabors.ImageSharp.Formats.Png;
 using tusdotnet.Interfaces;
 using tusdotnet.Models;
@@ -98,9 +99,9 @@ public class ImagePreviewGeneratorService
         var heightScale = (double) MaxHeight / height;
         
         var scale = Math.Min(widthScale, heightScale);
-        
-        var newWidth = (int)(width * scale);
-        var newHeight = (int)(height * scale);
+
+        var newWidth = (int) (width * scale);
+        var newHeight = (int) (height * scale);
 
         return (newWidth, newHeight);
     }

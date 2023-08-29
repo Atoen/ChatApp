@@ -103,7 +103,7 @@ public class UserController : ControllerBase
     {
         return _tokenService.CreateAuthToken(
             new Claim(JwtClaims.Username, user.Username),
-            new Claim(JwtClaims.Role, "User"),
+            new Claim(JwtClaims.Role, "user"),
             new Claim(JwtClaims.Uid, user.Id.ToString()));
     }
 
